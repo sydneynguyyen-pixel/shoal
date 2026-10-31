@@ -394,6 +394,60 @@ ACTIONS.appJump = (d) => {
 NOTES.pebbleVisit = ["Pebble: from Ana's visit note", ["Opened from the Home banner (“Ana's visit note has 2 things to add”), never on its own.", "Plain logistics in the note (“Needs more pillows”, “Running low on chux pads”, “Call me tonight”) become proposed tasks for the main caregiver, with the same review → Yes, add these as Talk it through. Tap a card to leave it out.", "Anything about medicine or symptoms is not turned into a task. It's shown as “ask her about this”, in Ana's words.", "Every task added is in What Pebble did, with Undo."]];
 NOTES.asNurse[1].push("Pebble: once Ana sends the note, Pebble (if the family has it on) offers the logistics in it as tasks on the family's Home. Nothing is added until the family says yes, and medicine or symptom lines are never tasks.");
 
+/* ---------- Big tasks split into steps ---------- */
+
+// On Add a task: once a Medium or Large task has a name, Pebble can offer 2–4 steps from a small rule table.
+// One tap adds them all, each can be removed, and steps can then be handed off one at a time.
+const STEP_RULES = [
+  [/hospital bed|bed deliver|delivery|deliver/i, ["Confirm the delivery window with hospice", "Clear a space and a path to the room", "Be home when it arrives", "Try the controls and check the mattress"]],
+  [/refill|prescription|pharmacy/i, ["Call the pharmacy", "Check insurance covers it", "Pick up or get it delivered"]],
+  [/appointment|checkup|check-up|chemo|dialysis|ride to|drive .* to/i, ["Confirm the time and the address", "Plan the ride and parking", "Pack the care binder and a water bottle", "Drive, wait and bring them home"]],
+  [/paperwork|forms?\b|directive|power of attorney|insurance|claim|medicare|medi-?cal|benefits/i, ["Gather the papers and ID", "Fill in the form", "Sign, copy and send it", "Note the date in the care binder"]],
+  [/equipment|wheelchair|walker|commode|oxygen|shower chair|grab bar/i, ["Ask hospice what they can supply", "Order it or pick it up", "Set it up and show everyone how it works"]],
+  [/overnight|night off|stay the night|sleep over/i, ["Agree the night and time", "Go over the evening routine together", "Stay the night", "Hand back in the morning"]],
+  [/grocer|shopping|supplies|stock up/i, ["Make the list together", "Shop, or order online", "Put it away and note what's low"]],
+  [/\bmove\b|moving|rearrange|set up the room/i, ["Decide what goes where", "Line up a second pair of hands", "Do the move", "Check nothing's in the way at night"]],
+];
+const pebbleSplitFor = (t) => (pebbleActive() && (t.w || 2) >= 2 && t.n.trim() ? (STEP_RULES.find(([re]) => re.test(t.n)) || [])[1] || null : null);
+function pebbleSplitBlock(t) {
+  if (!t) return "";
+  const x = (act, i) => `<button class="x-btn" data-act="${act}" data-id="${i}" aria-label="Remove step"><span aria-hidden="true">×</span></button>`;
+  if (t.steps.length) return `<div class="card stepsc peb-steps"><div class="meter-top"><b>Steps</b><span class="small">${t.pebSteps ? "Pebble's suggestion · remove any" : `${t.steps.length}`}</span></div>
+    ${t.steps.map((s, i) => `<div class="stp"><span class="num">${i + 1}</span><span class="tl-txt"><span class="n">${esc(s.n)}</span></span>${x("pebbleStepDrop", i)}</div>`).join("")}
+    <p class="small nq-foot">Each step can be handed off on its own once the task is saved.</p></div>`;
+  const sug = pebbleSplitFor(t);
+  if (!sug) return "";
+  const list = S.app.splitSug;
+  if (S.app.splitOpen && list) return `<div class="card stepsc peb-steps"><div class="peb-term-head">${pebFig("awaiting_confirmation", "s36")}<div><p class="eyebrow">Split into steps</p><b>${list.length} step${list.length === 1 ? "" : "s"} I'd add</b></div></div>
+    ${list.map((n, i) => `<div class="stp"><span class="num">${i + 1}</span><span class="tl-txt"><span class="n">${esc(n)}</span></span>${x("pebbleSplitDrop", i)}</div>`).join("")}
+    <div class="actions"><button class="btn-soft" data-act="pebbleSplitClose">Keep it whole</button><button class="btn-soft" data-act="pebbleSplitAdd">Add ${list.length === 1 ? "this step" : `these ${list.length} steps`}</button></div></div>`;
+  return `<div class="peb-aside peb-split">${pebFig("idle", "s44")}<div class="pa-btns"><button class="peb-chip" data-act="pebbleSplit">Split into steps</button><span class="small">${sug.length} steps you could hand off one at a time</span></div></div>`;
+}
+Object.assign(ACTIONS, {
+  pebbleSplit: () => { S.app.splitSug = [...(pebbleSplitFor(draft()) || [])]; S.app.splitOpen = true; render(); },
+  pebbleSplitDrop: (d) => { S.app.splitSug.splice(+d.id, 1); if (!S.app.splitSug.length) S.app.splitOpen = false; render(); },
+  pebbleSplitClose: () => { S.app.splitOpen = false; render(); },
+  pebbleSplitAdd: () => { const t = draft(); t.steps = S.app.splitSug.map((n) => ({ n, who: null, done: false })); t.pebSteps = true; S.app.splitOpen = false; render(); toast(`${t.steps.length} steps added. Remove any you don't need.`); },
+  pebbleStepDrop: (d) => { const t = draft(); t.steps.splice(+d.id, 1); if (!t.steps.length) t.pebSteps = false; render(); },
+});
+// Pebble sizes the task as it's typed; the split offer follows the same keystrokes.
+const draftNameBase = APP_INPUT.draftName;
+APP_INPUT.draftName = (v) => {
+  draftNameBase(v);
+  const box = document.querySelector("[data-peb-split]");
+  if (box) { S.app.splitOpen = false; box.innerHTML = pebbleSplitBlock(draft()); }
+};
+const newTaskBase = ACTIONS.newTask;
+ACTIONS.newTask = () => { S.app.splitOpen = false; S.app.splitSug = null; newTaskBase(); };
+// The split is logged once the task is really saved, so Undo has something to undo.
+const saveTaskBase = ACTIONS.saveTask;
+ACTIONS.saveTask = () => {
+  const t = draft();
+  if (t?.pebSteps && t.steps.length) pebLog(`Split “${t.n}” into ${t.steps.length} steps`, "On Add a task · you said yes", { type: "steps", id: t.id });
+  saveTaskBase();
+};
+NOTES.newTask[1].push("Pebble: once a Medium or Large task has a name that matches something Pebble knows how to break down (a bed delivery, a refill, a ride to an appointment, hospice paperwork, equipment, an overnight), one chip appears: Split into steps. It shows 2–4 steps; one tap adds them all, and each can be removed. Steps can then be handed off one at a time from the task (Ask, next to Take step). No match, no chip.");
+
 /* ---------- Talking to Pebble ---------- */
 
 const PEB_SAMPLES = [
@@ -730,6 +784,7 @@ Object.assign(ACTIONS, {
     if (u.type === "step" && t) { const i = t.steps.findIndex((s) => s.n === u.n); if (i >= 0) t.steps.splice(i, 1); }
     if (u.type === "who" && t) t.who = u.who;
     if (u.type === "nurseQ") S.app.nurseQs = nurseQs().filter((q) => q.id !== u.id);
+    if (u.type === "steps" && t) { t.steps = []; t.pebSteps = false; }
     // Undoing a follow-up puts the ask back with the first person, still waiting on them.
     if (u.type === "handoff" && t) { t.handoff = u.handoff; t.who = u.handoff.from; }
     x.undone = true; render(); toast("Undone");

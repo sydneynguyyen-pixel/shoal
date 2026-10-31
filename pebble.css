@@ -144,6 +144,18 @@
 .hand-note { display: flex; align-items: center; gap: 8px; }
 .hand-note .peb-chip { margin-left: auto; }
 .peb-chip.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+/* Split into steps, on Add a task */
+.peb-split { margin: 0 4px 16px; }
+.peb-split .small { flex-basis: 100%; }
+.peb-steps { margin: 0 0 16px; }
+.peb-steps .peb-term-head { margin-bottom: 4px; }
+.peb-steps .peb-term-head .eyebrow { margin-bottom: 2px; }
+.peb-steps .num { flex: none; width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center; background: var(--blue-tint); color: var(--blue); font-size: 12px; font-weight: 700; }
+.peb-steps .x-btn { margin-left: auto; }
+.peb-steps .actions { margin: 8px 0 12px; display: flex; gap: 8px; }
+.peb-steps .actions .btn-soft { flex: 1; justify-content: center; }
+.stp-acts { display: inline-flex; gap: 12px; }
+
 /* The optional follow-up line under the note. */
 .peb-follow { flex-wrap: nowrap; margin: 10px 0 4px; }
 .peb-follow .small { line-height: 19px; }

@@ -632,7 +632,7 @@ SCREENS.task = () => {
       ${t.steps.map((x, i) => `<div class="stp">
         <button data-act="toggleStep" data-id="${i}" aria-label="Toggle step">${check(x.done, true)}</button>
         <span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${x.who ? `${esc(nameOf(x.who))}${x.done ? ` · ${x.when || "Today"}` : " is on it"}` : x.ask ? `Asked ${esc(namesList(x.ask))}` : "Open"}</span></span>
-        ${x.who && x.who !== "you" ? avatar(person(x.who) || { name: "?" }, "s20") : !x.who && !x.ask ? `<button class="linkish" data-act="takeStep" data-id="${i}">Take step</button>` : ""}
+        ${x.who && x.who !== "you" ? avatar(person(x.who) || { name: "?" }, "s20") : !x.who && !x.ask ? `<span class="stp-acts"><button class="linkish" data-act="takeStep" data-id="${i}">Take step</button><button class="linkish" data-act="askStep" data-id="${i}">Ask</button></span>` : ""}
       </div>`).join("")}
     </div>` : ""}
     ${t.notes ? `<div class="card notes-card"><p class="eyebrow grey">Notes</p><p>${pebbleTerms(t.notes)}</p><span class="small">Added by you${pebbleOn() && HAS_TERM.test(t.notes) ? " · tap an underlined word to explain it" : ""}</span></div>` : ""}
@@ -705,6 +705,7 @@ SCREENS.newTask = () => {
     <div class="seg big">${[["once", "One-time"], ["repeat", "Ongoing"]].map(([k, l]) => `<button class="${t.kind === k ? "on" : ""}" aria-pressed="${t.kind === k}" data-act="draftKind" data-id="${k}">${l}</button>`).join("")}</div>
     <button class="card field-row" data-act="editDraftDate"><span>${t.kind === "once" ? "Due date" : "Repeats"} <em>Required</em></span><b>${t.kind === "once" ? fmtDate(t.date) : repeatLabel(t.days)}${t.time ? ` · ${fmtTime(t.time)}` : ""}</b>${chev}</button>
     <button class="card field-row" data-act="sizeSheet" data-id="${t.id}"><span class="fr-txt">Stone size <em>${t.sizeSet || !t.n.trim() || !pebbleOn() ? "" : "Pebble's guess"}</em><small>Bigger stone, bigger job</small></span>${gem("open", { size: "xs", cls: `w${t.w}` })}<b data-size-label>${WEIGHT_LABEL[t.w]}</b>${chev}</button>
+    <div data-peb-split>${typeof pebbleSplitBlock === "function" ? pebbleSplitBlock(t) : ""}</div>
     <p class="section-h">Who can help</p>
     <div class="card nt-open">
       <div class="chips">${OPEN_TIERS.map(([k, l]) => `<button class="chip ${openTo(t).includes(k) ? "on" : ""}" aria-pressed="${openTo(t).includes(k)}" data-act="draftOpen" data-id="${k}">${l}</button>`).join("")}</div>
@@ -1371,6 +1372,8 @@ Object.assign(ACTIONS, {
   editTaskDate: () => { S._cal = null; dateSheet(curTask()); },
   toggleStep: (d) => { const x = curTask().steps[+d.id]; x.done = !x.done; if (x.done && !x.who) x.who = "you"; render(); },
   takeStep: (d) => { curTask().steps[+d.id].who = "you"; render(); toast("That step is yours"); },
+  // Hand off one step, not the whole task.
+  askStep: (d) => { go("handoff"); S.app.handStep = +d.id; render(); },
   giveStone: (d) => { closeSheet(); S.app.stoneFor = d.id; go("newStone"); },
   handoff: () => { closeSheet(); go("handoff"); },
   // Pick several people, everyone who can take it, or no one (unassigned).
@@ -1570,7 +1573,7 @@ const APP_INPUT = {
     if (!t.sizeSet && pebbleOn()) {
       t.w = t.pw = v.trim() ? guessSize(v) : 2;
       const lab = document.querySelector("[data-size-label]");
-      if (lab) { lab.textContent = WEIGHT_LABEL[t.w]; lab.previousElementSibling.querySelector("em").textContent = v.trim() ? "Pebble's guess" : ""; }
+      if (lab) { lab.textContent = WEIGHT_LABEL[t.w]; const em = lab.closest(".field-row")?.querySelector("em"); if (em) em.textContent = v.trim() ? "Pebble's guess" : ""; }
     }
     const btn = document.querySelector(".footer .btn-primary");
     if (btn) btn.disabled = !v.trim();
