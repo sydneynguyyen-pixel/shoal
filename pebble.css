@@ -83,6 +83,27 @@
 .empty-card .small { text-align: center; }
 .peb-hint .linkish { flex-basis: 100%; text-align: left; padding-left: 36px; }
 
+/* Pebble's notice as a Home banner: the same glass banner as the others, on the pearl surface, with its two answers. */
+.h-ios.pebble { background: linear-gradient(155deg, rgba(251, 245, 240, 0.9) 0%, rgba(240, 233, 250, 0.9) 52%, rgba(231, 241, 245, 0.9) 100%); }
+.h-ios.pebble::before { background: linear-gradient(135deg, #c9b4ee 0%, #f1c9ae 34%, #b3d8e8 66%, #d6bdee 100%); opacity: 0.85; }
+.h-ios.pebble .h-ios-thumb { background: rgba(255, 255, 255, 0.75); }
+.h-ios.pebble .m { white-space: normal; color: #5e5478; }
+.h-ios.pebble .n { color: #3a2f5c; white-space: normal; }
+.h-ios-acts { display: flex; gap: 8px; padding: 0 10px 10px 62px; }
+.h-ios-acts .h-ios-cta { height: 30px; padding: 0 14px; display: inline-flex; align-items: center; background: var(--blue); color: #fff; box-shadow: none; }
+.h-ios-acts .h-ios-cta.soft { background: rgba(255, 255, 255, 0.7); color: var(--navy); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9); }
+
+/* The notice in the Notifications list: the row is one answer, "Not now" the other. */
+.notif-pair { display: flex; flex-direction: column; align-items: stretch; }
+.notif-pair .nf-alt { align-self: flex-end; }
+.notif.pebble.needs { border: 1.5px solid transparent; background: linear-gradient(155deg, #fbf5f0, #f0e9fa 52%, #e7f1f5) padding-box, linear-gradient(135deg, #c9b4ee, #f1c9ae 34%, #b3d8e8 66%, #d6bdee) border-box; }
+.nb-pebble { background: #6a5a8c; }
+.nf-alt { padding: 6px 14px 2px; }
+
+/* At home, the stone for a task Pebble has a notice about pulses gently, the kit's own slow glow. */
+.glassbox .gem.peb-pulse, .glassbox .gem.still.peb-pulse { animation: blink 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .glassbox .gem.peb-pulse, .glassbox .gem.still.peb-pulse { animation: none; } }
+
 /* Pebble's tab */
 .peb-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 0 22px; }
 .peb-hero .title { margin-top: 12px; }

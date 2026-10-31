@@ -13,7 +13,9 @@ function osData() {
   if (ask) S.app.osAsk = ask.id;
   const all = mine("you"), left = all.filter((t) => !t.done);
   const doneBy = S.tasks.find((t) => t.done && t.who && t.who !== "you");
-  return { prn, ask, all, left, doneBy };
+  // Pebble's notice shows up as a Shoal notification out here too, with the same one-tap answer inside.
+  const peb = typeof pebbleNotice === "function" ? pebbleNotice() : null;
+  return { prn, ask, all, left, doneBy, peb };
 }
 
 const osIcon = (size = 60) => `<span class="os-app shoal" style="--sz:${size}px" aria-hidden="true">${shoalMark(Math.round(size * 0.8))}</span>`;
@@ -52,6 +54,7 @@ SCREENS.osLock = () => {
         <span class="os-live-bar"><i style="width:${Math.round(d.f * 100)}%"></i></span>
         <span class="os-live-foot"><span>Next dose okay</span><b>${clock(D.prn.next)}</b></span></button>` : ""}
       ${D.ask ? osNote({ title: "Can someone take this?", body: `<b>${esc(D.ask.n)}</b> · ${esc(cap(dueLabel(D.ask)))}. Hold to answer.`, act: "go", to: "osNotif" }) : ""}
+      ${D.peb ? osNote({ title: "Pebble noticed", body: `<b>${esc(D.peb.title)}</b> · ${esc(D.peb.body)}. Tap to ${esc(D.peb.cta.replace(/^(Ask|Find)/, (w) => w.toLowerCase()))}.`, act: "osPebble", id: D.peb.key, when: "2m ago" }) : ""}
       ${D.doneBy ? osNote({ title: `${person(D.doneBy.who).name.split(" ")[0]} finished a task`, body: `${esc(D.doneBy.n)}. Say thanks?`, when: "12m ago", act: "osOpenApp", to: "home", cls: "back" }) : ""}
     </div>
     ${osBottom}
@@ -139,6 +142,8 @@ Object.assign(ACTIONS, {
     S.history = ["home"]; S.screen = d.to; render();
   },
   osTake: (d) => { const t = task(d.id); t.who = "you"; render(); },
+  // Tapping Pebble's notification opens Shoal straight into Hand off, pick made and note written.
+  osPebble: (d) => { S.history = []; lastDir = "fade"; S.screen = "home"; render(); ACTIONS.pebbleAskFor({ id: d.id }); },
   osPass: () => { toast("Okay. The family will ask someone else."); setTimeout(() => ACTIONS.osJump({ to: "osHome" }), 600); },
 });
 
@@ -147,7 +152,7 @@ const appNotesBase = renderAppNotes;
 renderAppNotes = function () {
   if (!isOs(S.screen)) { appNotesBase(); return; }
   const N = {
-    osLock: ["Lock screen", ["Glanceable without unlocking. The rectangle widget shows when the next as-needed dose is okay; the circle shows your tasks left.", "A Live Activity counts down to the next dose after anyone logs one, so no one doubles up.", "Notifications: a task someone could take, and a thank-you. Tap the first one to answer it.", "Only primary caregivers get dose widgets, like the care page."]],
+    osLock: ["Lock screen", ["Glanceable without unlocking. The rectangle widget shows when the next as-needed dose is okay; the circle shows your tasks left.", "A Live Activity counts down to the next dose after anyone logs one, so no one doubles up.", "Notifications: a task someone could take, and a thank-you. Tap the first one to answer it.", "Pebble: anything Pebble noticed is a Shoal notification here as well. Tapping it opens Shoal straight into Hand off with Pebble's pick and note ready, so the whole answer is one more tap: Send.", "Only primary caregivers get dose widgets, like the care page."]],
     osNotif: ["Answer a notification", ["Hold a notification and it opens up with its answers, so taking a task doesn't mean opening the app.", "\"I'll take it\" really assigns it. Open Shoal afterwards and it's in your jar."]],
     osHome: ["Home screen", ["A small widget: when the next dose is okay. A medium one: what's up next for you.", "The Shoal icon carries a badge for unread updates. Tap it, or any widget, to open the app right there.", "The other apps are stand-ins, there for context."]],
   }[S.screen];

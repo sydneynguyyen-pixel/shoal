@@ -235,7 +235,7 @@ function familyJars({ empty = false, only = null, act = true } = {}) {
     const tag = act ? "button" : "div";
     return `<${tag} class="rjar" ${act ? `data-act="openPerson" data-id="${p.id}"` : ""}>
       <div class="glassbox"><img class="glass" src="${A("jar.png")}" alt="">
-        ${ts.map((t, i) => (pos[i] ? gemOf(t, { size: "s", cls: `${S.app?.blink === t.id ? "blink" : ""} ${dropped.has(`${p.id}:${t.id}`) ? "still" : ""}`, style: `left:${pos[i].x}px;top:${pos[i].y}px` }) : "")).join("")}${jarMore(more)}
+        ${ts.map((t, i) => (pos[i] ? gemOf(t, { size: "s", cls: `${S.app?.blink === t.id ? "blink" : ""} ${dropped.has(`${p.id}:${t.id}`) ? "still" : ""} ${typeof pebblePulse === "function" && pebblePulse(t) ? "peb-pulse" : ""}`, style: `left:${pos[i].x}px;top:${pos[i].y}px` }) : "")).join("")}${jarMore(more)}
       </div><span class="who">${esc(p.name)}</span>${empty ? "" : `<span class="jar-n">${(() => { const n = all.filter((t) => !t.done).length; return typeof pending === "function" && pending(p) ? "Invited" : n ? `${n} to do` : "All done"; })()}</span>`}</${tag}>`;
   }).join("")}</div>`;
   ppl.forEach((p) => { if (!empty) mine(p.id).forEach((t) => dropped.add(`${p.id}:${t.id}`)); });
@@ -1136,10 +1136,14 @@ function notifications() {
 
 SCREENS.notifications = () => {
   const list = notifications();
-  const row = (x) => `<button class="notif ${x.kind} ${x.needs ? "needs" : ""}" ${x.act ? `data-act="${x.act}" data-id="${x.id || ""}"${x.to ? ` data-to="${x.to}"` : ""}` : "disabled"}>
+  const row = (x) => {
+    const b = `<button class="notif ${x.kind} ${x.needs ? "needs" : ""}" ${x.act ? `data-act="${x.act}" data-id="${x.id || ""}"${x.to ? ` data-to="${x.to}"` : ""}` : "disabled"}>
       <span class="nf-icon">${x.who ? avatar(x.who, "s36") : `<span class="nf-tile">${x.gem}</span>`}${nfBadge(x.kind)}</span>
       <span class="tl-txt"><span class="nf-kind">${NOTIF[x.kind][0]} · ${x.when}</span><span class="n">${esc(x.n)}</span><span class="m">${esc(x.m)}</span></span>
       ${x.needs && x.cta ? `<span class="pill-btn">${x.cta}</span>` : ""}</button>`;
+    // A second answer (like Pebble's "Not now") sits under the row, so both are one tap.
+    return x.alt ? `<div class="notif-pair">${b}<button class="linkish nf-alt" data-act="${x.alt[1]}" data-id="${x.id || ""}">${x.alt[0]}</button></div>` : b;
+  };
   const needs = list.filter((x) => x.needs), rest = list.filter((x) => !x.needs);
   return `${navtop("Home")}
   <div class="content">
