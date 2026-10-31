@@ -68,6 +68,8 @@
 .peb-prog .n { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
 .peb-prog .small { margin: 0; }
 .pp-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.peb-prog .pp-step { margin: 8px 0 0; color: var(--ink); }
+.stp .stp-detail { white-space: normal; margin-top: 2px; line-height: 16px; }
 
 /* My jar check-in hint */
 .peb-hint { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 10px 0 4px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.7); text-align: left; }

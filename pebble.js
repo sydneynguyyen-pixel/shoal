@@ -538,19 +538,25 @@ function pebbleTaskHelp(t) {
 }
 
 // Programs Pebble found for a California family caring at home. Sample data; a real version looks them up and cites each one.
+// Each one comes with the first step, so "help with costs" does the first bit of work instead of adding a new task to do.
 const PEB_PROGRAMS = [
-  { id: "ihss", n: "In-Home Supportive Services (IHSS)", d: "Pays for help at home for people on Medi-Cal. A family member can sometimes be the paid helper.", src: "cdss.ca.gov" },
-  { id: "pfl", n: "California Paid Family Leave", d: "Partial pay for up to 8 weeks while you care for a seriously ill family member.", src: "edd.ca.gov" },
-  { id: "fcsp", n: "Family Caregiver Support Program", d: "Respite care, counseling and training through your local Area Agency on Aging.", src: "aging.ca.gov" },
+  { id: "ihss", n: "In-Home Supportive Services (IHSS)", d: "Pays for help at home for people on Medi-Cal. A family member can sometimes be the paid helper.", src: "cdss.ca.gov",
+    step: "Call the county IHSS office", detail: () => `Phone: (___) ___-____ (your county's IHSS line) · Have ready: ${L()}'s Medi-Cal number, his address, and a short list of what he needs help with · Source: cdss.ca.gov` },
+  { id: "pfl", n: "California Paid Family Leave", d: "Partial pay for up to 8 weeks while you care for a seriously ill family member.", src: "edd.ca.gov",
+    step: "Start the Paid Family Leave claim online", detail: () => `edd.ca.gov › Paid Family Leave · Have ready: your last pay stub, the name of ${L()}'s doctor, and the dates you'll be off · Source: edd.ca.gov` },
+  { id: "fcsp", n: "Family Caregiver Support Program", d: "Respite care, counseling and training through your local Area Agency on Aging.", src: "aging.ca.gov",
+    step: "Call the Area Agency on Aging", detail: () => `Phone: (___) ___-____ (find yours at aging.ca.gov) · Ask for the Family Caregiver Support Program · Have ready: ${L()}'s age, your county, and a sentence about his care · Source: aging.ca.gov` },
 ];
 SCREENS.pebbleCosts = () => {
-  const C = PB().costs;
+  const C = PB().costs, t = S.tasks.find((x) => x.id === PB().costsFor);
+  const added = (p) => (t ? t.steps.some((s) => s.n === p.step) : C[p.id]);
   return `${navtop("Back")}
   <div class="content">
     <div class="peb-head">${pebFig("researching", "s56")}<div><p class="eyebrow">Help with costs</p><h1 class="title sm">${PEB_PROGRAMS.length} programs that may fit</h1></div></div>
-    <p class="small">Based on: California · care at home · sample answers</p>
+    <p class="small">Based on: California · care at home · sample answers${t ? ` · for “${esc(t.n)}”` : ""}</p>
     ${PEB_PROGRAMS.map((p) => `<div class="card peb-prog"><p class="n">${p.n}</p><p class="small">${p.d}</p>
-      <div class="pp-foot"><span class="small">Source · ${p.src}</span>${C[p.id] ? `<span class="badge plain">Task added</span>` : `<button class="pill-btn" data-act="pebbleCostTask" data-id="${p.id}">Make a task</button>`}</div></div>`).join("")}
+      ${t ? `<p class="small pp-step"><b>First step:</b> ${esc(p.step)}</p>` : ""}
+      <div class="pp-foot"><span class="small">Source · ${p.src}</span>${added(p) ? `<span class="badge plain">${t ? "Step added" : "Task added"}</span>` : `<button class="pill-btn" data-act="${t ? "pebbleCostStep" : "pebbleCostTask"}" data-id="${p.id}">${t ? "Add the first step" : "Make a task"}</button>`}</div></div>`).join("")}
     <p class="small center">Pebble finds and explains. Only the program can say if you qualify.</p>
   </div>`;
 };
@@ -631,7 +637,7 @@ function pebbleMonthEntry() {
 
 Object.assign(NOTES, {
   pebbleTalk: ["Pebble: talk it through", ["Opened from Talk it through on the Pebble tab. Talk or type; the samples show each path.", "Pebble turns it into draft changes: a new task, a step on a task you already have, or asking the circle to cover something. It spots tasks you already have, so nothing doubles up.", "Medicine and symptoms are left out, and Pebble says so. Emergency words stop everything and point to hospice.", "Nothing changes until “Yes, add these.” Every change can be undone in What Pebble did."]],
-  pebbleCosts: ["Pebble: help with costs", ["From a money or paperwork task.", "Programs that may fit, each with its source. “Make a task” adds a follow-up to your jar.", "Pebble finds and explains. Only the program decides who qualifies."]],
+  pebbleCosts: ["Pebble: help with costs", ["Only from a money or paperwork task (Find help paying).", "Programs that may fit, each with its source and its first step. “Add the first step” puts that step on the task you came from, not a new task: the phone-number placeholder, what to have ready, and the source sit in the step's detail.", "Pebble finds and explains. Only the program decides who qualifies."]],
   pebbleMonth: ["Pebble: monthly check-in", ["From People, for the monthly reset everyone does together.", "Patterns only: who's carrying more than the room they set, what has no one, what slipped.", "Rings show room, never why. The one suggested move only happens when the family says yes."]],
   pebbleLog: ["What Pebble did", ["Lives in one place: the Pebble tab (What I did). The Settings › Pebble row just links here.", "A record of every change Pebble proposed and you said yes to, with Undo."]],
 });
@@ -746,7 +752,15 @@ Object.assign(ACTIONS, {
   },
   nurseQAsked: (d) => { const q = nurseQs().find((x) => x.id === d.id); if (q) q.asked = !q.asked; render(); },
 
-  pebbleCostsFor: () => go("pebbleCosts"),
+  pebbleCostsFor: (d) => { PB().costsFor = d.id; go("pebbleCosts"); },
+  // Adds the first step to the task you came from, with the number placeholder, what to have ready, and the source in its detail.
+  pebbleCostStep: (d) => {
+    const p = PEB_PROGRAMS.find((x) => x.id === d.id), t = S.tasks.find((x) => x.id === PB().costsFor);
+    if (!t || t.steps.some((s) => s.n === p.step)) return;
+    t.steps.push({ n: p.step, who: null, done: false, detail: p.detail() });
+    pebLog(`Added a step to “${t.n}”`, `“${p.step}” · from Help with costs · source ${p.src}`, { type: "step", id: t.id, n: p.step });
+    render(); toast(`First step added to “${t.n}”`);
+  },
   pebbleCostTask: (d) => {
     const p = PEB_PROGRAMS.find((x) => x.id === d.id);
     const t = pebTask(`Look into ${p.n.replace(/\s*\(.*\)/, "")}`, "you", { w: 1, k: "paper", cat: "Money & paperwork", notes: `Source: ${p.src}. Only the program can say if ${L()} qualifies.` });

@@ -631,7 +631,7 @@ SCREENS.task = () => {
       <div class="bar"><i style="width:${(stepsDone / t.steps.length) * 100}%"></i></div>
       ${t.steps.map((x, i) => `<div class="stp">
         <button data-act="toggleStep" data-id="${i}" aria-label="Toggle step">${check(x.done, true)}</button>
-        <span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${x.who ? `${esc(nameOf(x.who))}${x.done ? ` · ${x.when || "Today"}` : " is on it"}` : x.ask ? `Asked ${esc(namesList(x.ask))}` : "Open"}</span></span>
+        <span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${x.who ? `${esc(nameOf(x.who))}${x.done ? ` · ${x.when || "Today"}` : " is on it"}` : x.ask ? `Asked ${esc(namesList(x.ask))}` : "Open"}</span>${x.detail ? `<span class="m stp-detail">${esc(x.detail)}</span>` : ""}</span>
         ${x.who && x.who !== "you" ? avatar(person(x.who) || { name: "?" }, "s20") : !x.who && !x.ask ? `<span class="stp-acts"><button class="linkish" data-act="takeStep" data-id="${i}">Take step</button><button class="linkish" data-act="askStep" data-id="${i}">Ask</button></span>` : ""}
       </div>`).join("")}
     </div>` : ""}
