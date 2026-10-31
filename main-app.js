@@ -751,6 +751,7 @@ SCREENS.peopleTab = () => {
     <div class="apphead"><h1 class="title">People</h1><button class="btn-ghost sm" data-act="inviteSheet">+ Invite</button></div>
     <button class="sub linkline" data-act="go" data-to="recap">October · ${done} of ${all.length} tasks done together ›</button>
     ${pebbleMonthEntry()}
+    ${typeof pebbleCatchupRows === "function" ? pebbleCatchupRows() : ""}
     <div class="shelf">
       <div class="shelf-top"><span class="eyebrow grey">Family jars</span>${open ? `<span class="small">${open} unassigned</span>` : ""}</div>
       ${familyJars()}
@@ -787,6 +788,7 @@ SCREENS.person = () => {
     <div class="phead">${avatar(p, "lg")}<h1 class="title">${esc(p.name)}</h1></div>
     <p class="sub">${p.about ? esc(p.about.trim() === "Lives with" ? `Lives with ${L()}` : p.about) : p.tier === "trusted" ? "Trusted circle, light tasks" : p.tier === "kid" ? "Kid tasks, never urgent" : "Main caregiver"}</p>
     ${personGlance(p, ts)}
+    ${typeof pebbleCatchupRow === "function" ? pebbleCatchupRow(p) : ""}
     <p class="section-h">Their tasks, and why</p>
     <div class="card tlist">${ts.length ? ts.map((t) => taskLine(t, {
       meta: `${avatar(p, "s20")} ${esc(p.name)} · ${dueLabel(t)}</span><span class="why">Why: ${esc(whyOf(t, p))}`,

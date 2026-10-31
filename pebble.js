@@ -266,12 +266,20 @@ function pebbleFollow(t) {
   return F;
 }
 function pebbleFollowRow(t) {
-  if (!pebbleActive() || t.steps[S.app.handStep]) return "";
+  if (!pebbleActive()) return "";
   const picked = Array.isArray(S.app.handTo) ? S.app.handTo : [];
   if (picked.length !== 1) return "";
+  const catchup = pebbleHandCatchup(picked[0]);
+  if (t.steps[S.app.handStep]) return catchup;
   const F = pebbleFollow(t);
-  if (!F.who) return "";
-  return `<div class="peb-hint peb-follow">${pebFig("awaiting_confirmation", "s28")}<span class="small">If no one says yes by <button class="linkish" data-act="pebbleFollowWhen">${esc(whenWord(F.when))}</button>, ask <button class="linkish" data-act="pebbleFollowWho">${esc(nameOf(F.who))}</button> next.</span>${toggle(F.on, "pebbleFollowOn", "", "Follow up if no one answers")}</div>`;
+  if (!F.who) return catchup;
+  return `${catchup}<div class="peb-hint peb-follow">${pebFig("awaiting_confirmation", "s28")}<span class="small">If no one says yes by <button class="linkish" data-act="pebbleFollowWhen">${esc(whenWord(F.when))}</button>, ask <button class="linkish" data-act="pebbleFollowWho">${esc(nameOf(F.who))}</button> next.</span>${toggle(F.on, "pebbleFollowOn", "", "Follow up if no one answers")}</div>`;
+}
+// On Hand off to someone who just joined: offer their catch-up note as part of this ask.
+function pebbleHandCatchup(id) {
+  const c = typeof catchupFor === "function" && catchupFor(id);
+  if (!c || S.app.note.includes(c.text)) return "";
+  return `<div class="peb-hint peb-catchup">${pebFig("awaiting_confirmation", "s28")}<span class="small"><b>${esc(nameOf(id))} just joined.</b> Add Pebble's catch-up note to this ask?</span><button class="linkish" data-act="pebbleCatchupAppend" data-id="${id}">Add it</button><button class="linkish" data-act="pebbleCatchupOpen" data-id="${id}">Read it</button></div>`;
 }
 // Called by sendHandoff. True means Pebble's follow-up runs the prototype's pretend replies instead.
 function pebbleFollowArm(t, to) {
@@ -447,6 +455,74 @@ ACTIONS.saveTask = () => {
   saveTaskBase();
 };
 NOTES.newTask[1].push("Pebble: once a Medium or Large task has a name that matches something Pebble knows how to break down (a bed delivery, a refill, a ride to an appointment, hospice paperwork, equipment, an overnight), one chip appears: Split into steps. It shows 2–4 steps; one tap adds them all, and each can be removed. Steps can then be handed off one at a time from the task (Ask, next to Take step). No match, no chip.");
+
+/* ---------- Catch-up note for a new helper ---------- */
+
+// When a helper joins, Pebble drafts a short "here's where things are" note for them: this week, the tasks
+// waiting for them, who to ask. Never health details: no med tasks, no notes, nothing from the care page.
+// The main caregiver reads it in People, on the person's page or on Hand off, and taps to send. Pebble doesn't send.
+const catchups = () => (PB().catchup ??= {});
+const plainTask = (t) => t.k !== "meds" && !t.medIds;
+function pebbleCatchup(p) {
+  if (!pebbleActive() || !p || p.id === "you" || catchups()[p.id]) return;
+  const first = p.name.split(" ")[0];
+  const week = mondayOf(iso(TODAY));
+  const days = DAYS.map((d, i) => ({ d, n: active().filter((t) => occurs(t, fromIso(shift(week, i)))).length }));
+  const heavy = days.reduce((a, b) => (b.n > a.n ? b : a));
+  const waiting = mine(p.id).filter((t) => !t.done && plainTask(t));
+  const asker = S.people.find((x) => x.tier === "main" && x.id !== p.id && x.id !== "you" && x.best) || person("you");
+  const lines = [
+    `Hi ${first}, here's where things are this week.`,
+    `The family has ${active().filter(plainTask).length} tasks going${heavy.n ? `, and ${DAY_FULL[heavy.d]} is the busiest day` : ""}.`,
+    waiting.length ? `Waiting for you: ${listWords(waiting.map((t) => `${t.n} (${t.kind === "once" ? dueLabel(t) : repeatLabel(t.days)})`))}.` : "Nothing is waiting for you yet. Take whatever fits.",
+    `If you have a question, ask ${asker.id === "you" ? "me" : asker.name}${asker.best ? ` (${asker.best.toLowerCase()} are best)` : ""}.`,
+    "Thanks for jumping in.",
+  ];
+  catchups()[p.id] = { text: lines.join(" "), sent: false, when: `Today, ${nowLabel()}` };
+}
+const catchupFor = (id) => { const c = catchups()[id]; return pebbleActive() && c && !c.sent ? c : null; };
+// A pearl row: "Pebble wrote a catch-up note for Bill", with Read it.
+function pebbleCatchupRow(p) {
+  const c = catchupFor(p.id);
+  if (!c) return "";
+  return `<div class="peb-hint peb-catchup">${pebFig("awaiting_confirmation", "s28")}<span class="small"><b>${esc(p.name)} just joined.</b> Pebble wrote a catch-up note for ${p.name.split(" ")[0]}. Nothing sent until you say so.</span><button class="linkish" data-act="pebbleCatchupOpen" data-id="${p.id}">Read it</button></div>`;
+}
+function pebbleCatchupRows() {
+  return S.people.filter((p) => catchupFor(p.id)).map(pebbleCatchupRow).join("");
+}
+Object.assign(ACTIONS, {
+  pebbleCatchupOpen: (d) => {
+    const p = person(d.id), c = catchups()[d.id];
+    PB().catchupFor = d.id;
+    openSheet(`<div class="peb-term-head">${pebFig("awaiting_confirmation", "s44")}<div><p class="eyebrow grey">Catch-up note for ${esc(p.name)}</p><h3>Here's where things are</h3></div></div>
+      <p class="small">Written from the plan only: this week, the tasks waiting for ${esc(p.name.split(" ")[0])}, who to ask. No health details. Change anything, then send it yourself.</p>
+      <textarea class="note-input peb-catchup-text" data-input="pebbleCatchupText" aria-label="Catch-up note">${esc(c.text)}</textarea>
+      <div class="actions"><button class="btn-soft" data-act="closeSheet">Not now</button><button class="btn-soft" data-act="pebbleCatchupSend">Send to ${esc(p.name.split(" ")[0])}</button></div>`);
+  },
+  pebbleCatchupSend: () => {
+    const id = PB().catchupFor, c = catchups()[id], p = person(id);
+    c.sent = true;
+    pebLog(`Wrote a catch-up note for ${p.name}`, "You read it and sent it yourself");
+    closeSheet(); render(); toast(`Sent to ${p.name}`);
+  },
+  // On Hand off: drop the catch-up note into the note you're about to send.
+  pebbleCatchupAppend: (d) => {
+    const c = catchups()[d.id];
+    S.app.note = S.app.note.trim() ? `${S.app.note.trim()}\n\n${c.text}` : c.text;
+    S.app.notePebble = true; c.sent = true;
+    pebLog(`Wrote a catch-up note for ${nameOf(d.id)}`, "Added to a hand-off note you sent");
+    render();
+  },
+});
+APP_INPUT.pebbleCatchupText = (v) => { const c = catchups()[PB().catchupFor]; if (c) c.text = v; };
+// The moment a helper joins (invite.js), Pebble drafts the note. Nothing is shown to the helper.
+if (ACTIONS.invTasksDone) {
+  const invTasksDoneBase = ACTIONS.invTasksDone;
+  ACTIONS.invTasksDone = () => { const p = invitee(); invTasksDoneBase(); pebbleCatchup(p); };
+}
+NOTES.peopleTab[1].push("Pebble: when a helper joins (the new helper's first look, from Settings › See Shoal as someone else), a pearl row says Pebble wrote them a catch-up note: this week, the tasks waiting for them, who to ask. No health details. Read it, change it, and send it yourself. Pebble never sends.");
+NOTES.person[1].push("Pebble: a just-joined helper's catch-up note shows here too, until it's sent.");
+NOTES.inviteDone[1].push("Pebble: once they're in, Pebble drafts a catch-up note for the main caregiver to send. The helper doesn't see it until it's sent.");
 
 /* ---------- Talking to Pebble ---------- */
 

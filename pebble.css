@@ -158,6 +158,11 @@
 .peb-steps .actions .btn-soft { flex: 1; justify-content: center; }
 .stp-acts { display: inline-flex; gap: 12px; }
 
+/* Catch-up note for a new helper: a pearl row in People, on the person, and on Hand off. */
+.peb-catchup { margin: 0 0 12px; }
+.peb-catchup .linkish { flex-basis: auto; padding-left: 0; }
+.peb-catchup-text { min-height: 150px; }
+
 /* The optional follow-up line under the note. */
 .peb-follow { flex-wrap: nowrap; margin: 10px 0 4px; }
 .peb-follow .small { line-height: 19px; }
