@@ -6,9 +6,9 @@
    This prototype has no AI backend: Pebble's "understanding" is a few plain rules, so the flows can be tested.
    Uses state and helpers from app.js and main-app.js. */
 
-const PEBBLE_SCREENS = ["pebbleTalk", "pebbleCosts", "pebbleLog", "pebbleMonth"];
+const PEBBLE_SCREENS = ["pebbleTalk", "pebbleCosts", "pebbleLog", "pebbleMonth", "pebbleVisit"];
 PEBBLE_SCREENS.forEach((s) => APP_SCREENS.add(s));
-APP_NAV.push("pebbleTalk", "pebbleCosts", "pebbleMonth", "pebbleLog");
+APP_NAV.push("pebbleTalk", "pebbleCosts", "pebbleMonth", "pebbleVisit", "pebbleLog");
 
 /* ---------- State ---------- */
 
@@ -205,6 +205,8 @@ function pebbleBanners() {
   const out = [];
   const x = pebbleNotice();
   if (x) out.push({ key: `peb:${x.key}`, id: x.key, act: "pebbleAskFor", cls: "pebble", icon: pebFig("noticing", "s28"), title: x.title, body: x.body, cta: x.cta, alt: ["Not now", "pebbleNotNow"] });
+  const vb = visitBanner();
+  if (vb) out.push(vb);
   followedTasks().filter((t) => !PB().dismissed[`follow:${t.id}`]).forEach((t) => out.push({ key: `peb:follow:${t.id}`, id: t.id, act: "openTask", cls: "pebble", icon: pebFig("confirmed", "s28"), title: followLine(t), body: `“${t.n}” · you said it could · undo in What Pebble did`, cta: "View" }));
   return out;
 }
@@ -299,6 +301,98 @@ function pebbleFollowArm(t, to) {
 // The follow-up, once it happened, as a notification and a Home banner.
 const followedTasks = () => S.tasks.filter((t) => t.handoff?.pebbleFollow);
 const followLine = (t) => `${nameOf(t.handoff.pebbleFollow.prev)} didn't answer, so Pebble asked ${nameOf(handWho(t.handoff))}`;
+
+/* ---------- The nurse's visit note becomes tasks ---------- */
+
+// After Ana sends a visit note, Pebble turns the plain-logistics parts into proposed tasks for the main caregiver,
+// with the same review → "Yes, add these" as Talk it through. Anything about medicine or symptoms is not a task:
+// it's shown as "ask her about this". Nothing opens on its own; a banner on Home says the note has things to add.
+const PEB_SYMPTOM = /\b(pain|breath|breathing|restless|nausea|nauseous|fever|swelling|swollen|confus\w*|sleep\w*|agitat\w*|dose|doses|mg|ml|morphine|lorazepam|pill|pills|medication|medicine|meds|symptom\w*)\b/i;
+const PEB_LOGISTIC = /\b(needs?|get|pick up|order|buy|bring|replace|more|supplies|pads|pillows|sheets|call me|deliver\w*)\b/i;
+function visitProposal(s) {
+  const need = s.match(/\bneeds?\s+(?:to\s+)?(.+)$/i);
+  if (need) return /^(more|new|another|a|an|some)\b/i.test(need[1]) ? `Get ${need[1]}` : cap1(need[1]);
+  const low = s.match(/\b(?:running low on|low on|out of|running out of)\s+(.+)$/i);
+  if (low) return `Get more ${low[1]}`;
+  const me = s.match(/\bcall me\b(.*)$/i);
+  if (me) return `Call Ana${me[1] ? ` ${me[1].trim()}` : ""}`;
+  return cap1(s);
+}
+function pebbleVisitNote(v) {
+  if (!pebbleActive() || !v?.note) return;
+  const sentences = v.note.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim().replace(/[.!?]+$/, "")).filter(Boolean);
+  const props = [], asks = [];
+  sentences.forEach((s) => {
+    if (PEB_SYMPTOM.test(s)) asks.push(s);
+    else if (PEB_LOGISTIC.test(s)) props.push({ n: visitProposal(s), on: true, from: s });
+  });
+  if (!props.length && !asks.length) return;
+  PB().visit = { id: v.id, note: v.note, props, asks, phase: "new", done: [] };
+}
+const visitOpen = () => { const V = PB().visit; return pebbleActive() && V && V.phase !== "done" && !PB().dismissed["visit"] ? V : null; };
+function visitBanner() {
+  const V = visitOpen();
+  if (!V) return null;
+  const n = V.props.length, title = n ? `Ana's visit note has ${n} thing${n === 1 ? "" : "s"} to add` : "Ana's visit note has something to ask her about";
+  const body = [n ? V.props.map((p) => p.n).join(", ") : "", V.asks.length ? `${V.asks.length} thing${V.asks.length === 1 ? "" : "s"} to ask her, not tasks` : ""].filter(Boolean).join(" · ");
+  return { key: "peb:visit", id: "visit", act: "pebbleVisitOpen", cls: "pebble", icon: pebFig("organizing", "s28"), title, body, cta: "Review", alt: ["Not now", "pebbleNotNow"] };
+}
+SCREENS.pebbleVisit = () => {
+  const V = PB().visit;
+  if (!V) return `${navtop("Back")}<div class="content"><p class="small">Nothing from Ana's note right now.</p></div>`;
+  if (V.phase === "done") return `${navtop("Close")}
+  <div class="content">
+    <div class="peb-stage">${pebFig("confirmed", "xl")}</div>
+    <h1 class="title center">Added to your jar.</h1>
+    <div class="card tlist peb-done">${V.done.map((x) => `<div class="srow">${gem("progress", { size: "s" })}<span class="tl-txt"><span class="n">${esc(x)}</span><span class="m">From Ana's visit note · your jar</span></span></div>`).join("") || `<p class="small empty">Nothing added.</p>`}</div>
+    <p class="small center">Undo anything from What Pebble did, in the Pebble tab.</p>
+  </div>
+  ${solo("Done", "back")}`;
+  const on = V.props.filter((p) => p.on).length;
+  return `${navtop("Back")}
+  <div class="content">
+    <div class="peb-head">${pebFig("awaiting_confirmation", "s56")}<div><span class="badge amber">Waiting for your yes</span><h1 class="title sm">From Ana's visit note</h1></div></div>
+    <div class="card info left"><span class="avatar s36">A</span><span class="small"><b>Ana wrote:</b> “${esc(V.note)}”</span></div>
+    ${V.props.length ? `<p class="section-h">Tasks I'd add to your jar</p>
+    ${V.props.map((p, i) => `<button class="card peb-prop ${p.on ? "" : "off"}" data-act="pebbleVisitProp" data-id="${i}" aria-pressed="${p.on}">${check(p.on)}<span class="tl-txt"><span class="n">${esc(p.n)}</span><span class="m">From “${esc(p.from)}” · this week</span></span></button>`).join("")}
+    <p class="small">Tap a card to leave it out.</p>` : ""}
+    ${V.asks.length ? `<p class="section-h">From Ana's note: ask her about this</p>
+    <div class="card info peb-skip">${pebFig("sensitive", "s36")}<span class="small">${V.asks.map((a) => `“${esc(a)}”`).join(" ")}<br><b>Not a task.</b> Anything about medicine or symptoms is for Ana to answer, so I left it as something to ask her.</span></div>` : ""}
+  </div>
+  ${duo(["Not now", "pebbleVisitNotNow"], [on ? `Yes, add ${on === 1 ? "this" : `these ${on}`}` : "Nothing to add", on ? "pebbleVisitYes" : "back"])}`;
+};
+Object.assign(ACTIONS, {
+  pebbleVisitOpen: () => go("pebbleVisit"),
+  pebbleVisitProp: (d) => { const p = PB().visit.props[+d.id]; p.on = !p.on; render(); },
+  pebbleVisitNotNow: () => { PB().dismissed.visit = true; back(); toast("Okay. Ana's note stays in notifications."); },
+  pebbleVisitYes: () => {
+    const V = PB().visit;
+    V.props.filter((p) => p.on).forEach((p) => {
+      const t = pebTask(p.n, "you", { date: addDays(2), w: 1, k: /call/i.test(p.n) ? "phone" : "drive", notes: `From Ana's visit note: “${p.from}.”` });
+      pebLog(`Added “${t.n}” to your jar`, "From Ana's visit note · you said yes", { type: "task", id: t.id });
+      V.done.push(t.n);
+    });
+    V.phase = "done"; render();
+  },
+});
+// Hooks Ana's "Send to the family" (roles.js). The note still goes to the family as before; Pebble only reads it for logistics.
+if (ACTIONS.visitSend) {
+  const roleVisitSend = ACTIONS.visitSend;
+  ACTIONS.visitSend = () => {
+    const R = S.app.roles, id = R.visitFor;
+    roleVisitSend();
+    const v = R.visits.find((x) => x.id === id);
+    if (v?.done) { delete PB().dismissed.visit; pebbleVisitNote(v); }
+  };
+}
+// Jumping here from the side panel with no note yet shows a sample one, so the screen always has something to review.
+const appJumpBase = ACTIONS.appJump;
+ACTIONS.appJump = (d) => {
+  if (d.to === "pebbleVisit" && !PB().visit) pebbleVisitNote({ id: "sample", note: "Comfortable today. Needs more pillows. Running low on chux pads. Pain seemed worse at night." });
+  appJumpBase(d);
+};
+NOTES.pebbleVisit = ["Pebble: from Ana's visit note", ["Opened from the Home banner (“Ana's visit note has 2 things to add”), never on its own.", "Plain logistics in the note (“Needs more pillows”, “Running low on chux pads”, “Call me tonight”) become proposed tasks for the main caregiver, with the same review → Yes, add these as Talk it through. Tap a card to leave it out.", "Anything about medicine or symptoms is not turned into a task. It's shown as “ask her about this”, in Ana's words.", "Every task added is in What Pebble did, with Undo."]];
+NOTES.asNurse[1].push("Pebble: once Ana sends the note, Pebble (if the family has it on) offers the logistics in it as tasks on the family's Home. Nothing is added until the family says yes, and medicine or symptom lines are never tasks.");
 
 /* ---------- Talking to Pebble ---------- */
 
@@ -506,6 +600,8 @@ const pebNotifications = notifications;
 notifications = function () {
   const x = pebbleNotice();
   const list = x ? [{ kind: "pebble", needs: true, cta: x.cta, when: "Now", gem: pebFig("noticing", "s28"), n: x.title, m: `${x.body} · you decide, Pebble asks no one`, act: "pebbleAskFor", id: x.key, alt: ["Not now", "pebbleNotNow"] }] : [];
+  const vb = visitBanner();
+  if (vb) list.push({ kind: "pebble", needs: true, cta: "Review", when: "Today", gem: pebFig("organizing", "s28"), n: vb.title, m: `${vb.body} · nothing is added until you say yes`, act: "pebbleVisitOpen", id: "visit", alt: ["Not now", "pebbleNotNow"] });
   followedTasks().forEach((t) => list.push({ kind: "pebble", when: "Today", gem: pebFig("confirmed", "s28"), n: followLine(t), m: `“${t.n}” · you said it could on Hand off · undo in What Pebble did`, act: "openTask", id: t.id }));
   return [...list, ...pebNotifications()];
 };
@@ -652,6 +748,7 @@ SCREENS.pebble = () => {
       <p class="sub">Tell me what's going on. I'll sort it into tasks.</p>
       <button class="btn-primary" data-act="pebbleAsk">Talk it through</button></div>
     ${pebbleHomeCard()}
+    ${(() => { const vb = visitBanner(); return vb ? `<button class="card peb-month" data-act="pebbleVisitOpen">${pebFig("organizing", "s44")}<span class="tl-txt"><span class="n">${esc(vb.title)}</span><span class="m">${esc(vb.body)}</span></span>${chev}</button>` : ""; })()}
     <button class="h-w wide peb-sees" data-act="pebbleLogOpen">${pebFig("confirmed", "s36")}<span class="tl-txt"><span class="k-lab">What I did</span><span class="k-note">${n ? `${n} change${n === 1 ? "" : "s"} · undo any` : "Nothing yet"}</span></span><span class="k-go" aria-hidden="true">${chev}</span></button>
     <button class="h-w wide peb-sees" data-act="pebbleSees"><span class="k-lab">What Pebble can see</span><span class="k-go" aria-hidden="true">${chev}</span></button>
   </div>

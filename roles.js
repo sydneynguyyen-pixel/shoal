@@ -269,7 +269,7 @@ Object.assign(ACTIONS, {
   visitSheet: (d) => {
     const R = S.app.roles; R.visitFor = d.id; R.visitNote = "";
     openSheet(`<h3>How was the visit?</h3><p class="small">The family gets this right away.</p>
-      <div class="chips">${["Comfortable today", "Ate a little", "Needs more pillows", "Call me tonight"].map((c) => `<button class="chip" data-act="visitChip" data-id="${c}">${c}</button>`).join("")}</div>
+      <div class="chips">${["Comfortable today", "Ate a little", "Needs more pillows", "Running low on chux pads", "Call me tonight", "Pain seemed worse at night"].map((c) => `<button class="chip" data-act="visitChip" data-id="${c}">${c}</button>`).join("")}</div>
       <textarea class="note-input" data-input="visitNote" placeholder="Anything else they should know?"></textarea>
       <button class="btn-primary" data-act="visitSend">Send to the family</button>`);
   },
