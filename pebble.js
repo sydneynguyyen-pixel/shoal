@@ -207,7 +207,7 @@ function pebbleBanners() {
   if (x) out.push({ key: `peb:${x.key}`, id: x.key, act: "pebbleAskFor", cls: "pebble", icon: pebFig("noticing", "s28"), title: x.title, body: x.body, cta: x.cta, alt: ["Not now", "pebbleNotNow"] });
   const vb = visitBanner();
   if (vb) out.push(vb);
-  followedTasks().filter((t) => !PB().dismissed[`follow:${t.id}`]).forEach((t) => out.push({ key: `peb:follow:${t.id}`, id: t.id, act: "openTask", cls: "pebble", icon: pebFig("confirmed", "s28"), title: followLine(t), body: `“${t.n}” · you said it could · undo in What Pebble did`, cta: "View" }));
+  if (pebbleOn()) followedTasks().filter((t) => !PB().dismissed[`follow:${t.id}`]).forEach((t) => out.push({ key: `peb:follow:${t.id}`, id: t.id, act: "openTask", cls: "pebble", icon: pebFig("confirmed", "s28"), title: followLine(t), body: `“${t.n}” · you said it could · undo in What Pebble did`, cta: "View" }));
   return out;
 }
 
@@ -816,7 +816,7 @@ notifications = function () {
   const list = x ? [{ kind: "pebble", needs: true, cta: x.cta, when: "Now", gem: pebFig("noticing", "s28"), n: x.title, m: `${x.body} · you decide, Pebble asks no one`, act: "pebbleAskFor", id: x.key, alt: ["Not now", "pebbleNotNow"] }] : [];
   const vb = visitBanner();
   if (vb) list.push({ kind: "pebble", needs: true, cta: "Review", when: "Today", gem: pebFig("organizing", "s28"), n: vb.title, m: `${vb.body} · nothing is added until you say yes`, act: "pebbleVisitOpen", id: "visit", alt: ["Not now", "pebbleNotNow"] });
-  followedTasks().forEach((t) => list.push({ kind: "pebble", when: "Today", gem: pebFig("confirmed", "s28"), n: followLine(t), m: `“${t.n}” · you said it could on Hand off · undo in What Pebble did`, act: "openTask", id: t.id }));
+  if (pebbleOn()) followedTasks().forEach((t) => list.push({ kind: "pebble", when: "Today", gem: pebFig("confirmed", "s28"), n: followLine(t), m: `“${t.n}” · you said it could on Hand off · undo in What Pebble did`, act: "openTask", id: t.id }));
   return [...list, ...pebNotifications()];
 };
 
