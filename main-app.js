@@ -674,7 +674,7 @@ SCREENS.handoff = () => {
       }).join("")}
       ${t.who && !step ? `<button class="radio-row" data-act="handTo" data-id="">${gem("open", { size: "s" })}<span class="tl-txt"><span class="n">Unassigned</span><span class="m">Glows white for whoever is free</span></span>${check(to === null)}</button>` : ""}
     </div>
-    <p class="label hand-note">Note <span class="small">optional</span>${pebbleOn() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
+    <p class="label hand-note">Note <span class="small">optional</span>${typeof pebbleActive === "function" && pebbleActive() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
     <textarea class="note-input" data-input="handoffNote" placeholder="Anything they should know?">${esc(S.app.note)}</textarea>
     ${typeof pebbleFollowRow === "function" ? pebbleFollowRow(t) : ""}
     ${target ? `<p class="small" style="text-align:center">We'll ${target.tier === "main" && target.via !== "text" ? "send it to the app" : "text"} ${esc(target.name)}.</p>`
@@ -833,6 +833,7 @@ SCREENS.settings = () => {
     <p class="section-h">Pebble</p>
     <div class="card tlist"><div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">${pebbleOn() ? "Suggests tasks and a fair split, notices what's slipping, writes the note when you ask for help" : "Off · you set things up by hand"}</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
       ${row("What Pebble can see", "Answers, goals and what you tell it. No medical advice.", "pebbleSees")}
+      ${pebbleOn() && typeof pebbleQuietRow === "function" ? pebbleQuietRow() : ""}
       ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything, in the Pebble tab` : "Nothing yet · it lives in the Pebble tab", "pebbleLogOpen") : ""}</div>
     <p class="section-h">Account</p>
     <div class="card tlist">${row("Sign out", "Back to the sign-in screen", "signOutSheet")}</div>

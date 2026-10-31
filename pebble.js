@@ -6,9 +6,9 @@
    This prototype has no AI backend: Pebble's "understanding" is a few plain rules, so the flows can be tested.
    Uses state and helpers from app.js and main-app.js. */
 
-const PEBBLE_SCREENS = ["pebbleTalk", "pebbleCosts", "pebbleLog", "pebbleMonth", "pebbleVisit"];
+const PEBBLE_SCREENS = ["pebbleTalk", "pebbleCosts", "pebbleLog", "pebbleMonth", "pebbleVisit", "pebbleAfter"];
 PEBBLE_SCREENS.forEach((s) => APP_SCREENS.add(s));
-APP_NAV.push("pebbleTalk", "pebbleCosts", "pebbleMonth", "pebbleVisit", "pebbleLog");
+APP_NAV.push("pebbleTalk", "pebbleCosts", "pebbleMonth", "pebbleVisit", "pebbleAfter", "pebbleLog");
 
 /* ---------- State ---------- */
 
@@ -524,6 +524,84 @@ NOTES.peopleTab[1].push("Pebble: when a helper joins (the new helper's first loo
 NOTES.person[1].push("Pebble: a just-joined helper's catch-up note shows here too, until it's sent.");
 NOTES.inviteDone[1].push("Pebble: once they're in, Pebble drafts a catch-up note for the main caregiver to send. The helper doesn't see it until it's sent.");
 
+/* ---------- Quiet days ---------- */
+
+// Settings › Pebble › Quiet days. Pebble stops noticing and suggesting: banners, pulses, follow-ups, hints and
+// offers all pause. Something's wrong and the family's own tasks stay. Any main caregiver can turn it on,
+// and everyone sees that it's on (the Pebble tab says so, and who turned it on).
+const quietLine = () => { const q = PB().quiet; return q ? `Turned on by ${q.by === "you" ? "you" : nameOf(q.by)} · ${q.when}` : ""; };
+function pebbleQuietRow() {
+  const q = PB().quiet;
+  return `<div class="srow"><span class="tl-txt"><span class="n">Quiet days</span><span class="m">${q ? `On · ${quietLine()} · Pebble isn't noticing or suggesting until someone turns this off` : "Pause Pebble's notices, suggestions, pulses and follow-ups for a while. Everyone sees it's on."}</span></span>${toggle(!!q, "pebbleQuiet", "", "Quiet days")}</div>`;
+}
+ACTIONS.pebbleQuiet = () => {
+  const on = !PB().quiet;
+  PB().quiet = on ? { by: "you", when: `Today, ${nowLabel()}` } : null;
+  pebLog(on ? "Quiet days turned on" : "Quiet days turned off", on ? "Pebble stopped noticing and suggesting · you said so" : "Pebble is back to noticing · you said so");
+  render(); toast(on ? "Quiet days. Pebble will keep still until someone turns this off." : "Pebble is back.");
+};
+NOTES.settings[1].push("Pebble › Quiet days: Pebble stops noticing and suggesting (banners, pulses, follow-ups, hints and offers pause). Only Something's wrong and the family's own tasks remain. Any main caregiver can turn it on, and the Pebble tab shows everyone that it's on and who did it.");
+
+/* ---------- When the time comes ---------- */
+
+// A pre-built set of tasks for the first days after, from the "After · The first hours" and "Closing Dad's Shoal"
+// frames in Figma. It loads only when the family chooses it, with the usual review → yes. No dates, nothing urgent:
+// every task is "as needed", so no stone turns yellow and no reminder goes out.
+const AFTER_TASKS = () => [
+  { n: `Call ${HOSPICE.name} first, not 911`, m: "Nurse Ana or the 24/7 line will come. In some places 911 brings in the medical examiner." },
+  { n: "Tell the people who need to know", m: `One message to ${L()}'s circle. You write it; Shoal sends it to the family for you.` },
+  { n: "Choose a funeral home", m: "Rosa, the hospice social worker, can help, including with costs." },
+  { n: "Ask the funeral home for death certificates", m: "Several copies. They can also tell Social Security." },
+  { n: `Pause ${L()}'s deliveries and appointments`, m: "The pharmacy, hospice equipment, the pill box." },
+  { n: `Close ${L()}'s Shoal, when you're ready`, m: "Every open stone goes dark. Each person can keep a stone. Grief support is there for a year." },
+];
+SCREENS.pebbleAfter = () => {
+  const A2 = PB().after;
+  if (A2?.phase === "done") return `${navtop("Close")}
+  <div class="content">
+    <div class="peb-stage quiet">${pebFig("sensitive", "xl")}</div>
+    <h1 class="title center">They're in your jar, with no dates.</h1>
+    <p class="sub center">Nothing will light up or remind you. They're there when you need them, and you can hand any of them to someone else.</p>
+    <div class="card tlist peb-done">${A2.done.map((n) => `<div class="srow">${gem("progress", { size: "s", dark: true })}<span class="tl-txt"><span class="n">${esc(n)}</span><span class="m">As needed · your jar</span></span></div>`).join("")}</div>
+    <p class="small center">Undo anything from What Pebble did, in the Pebble tab.</p>
+  </div>
+  ${solo("Done", "back")}`;
+  if (A2?.phase === "review") {
+    const on = A2.props.filter((p) => p.on).length;
+    return `${navtop("Back")}
+    <div class="content">
+      <div class="peb-head">${pebFig("awaiting_confirmation", "s56")}<div><span class="badge amber">Only if you say yes</span><h1 class="title sm">The first days, as a list</h1></div></div>
+      <p class="small">These go in your jar with no dates. Leave out anything that doesn't fit your family.</p>
+      ${A2.props.map((p, i) => `<button class="card peb-prop ${p.on ? "" : "off"}" data-act="pebbleAfterProp" data-id="${i}" aria-pressed="${p.on}">${check(p.on)}<span class="tl-txt"><span class="n">${esc(p.n)}</span><span class="m">${esc(p.m)}</span></span></button>`).join("")}
+      <p class="small">Tap a card to leave it out.</p>
+    </div>
+    ${duo(["Not now", "back"], [on ? `Yes, add ${on === 1 ? "this" : `these ${on}`}` : "Nothing to add", on ? "pebbleAfterYes" : "back"])}`;
+  }
+  return `${navtop("Back")}
+  <div class="content">
+    <div class="peb-stage quiet">${pebFig("sensitive", "xl")}</div>
+    <h1 class="title center">When the time comes</h1>
+    <p class="sub center">There's no rush, and nothing here has to happen today.</p>
+    <p class="sub center">When you choose, Pebble can add a small list for the first days after ${esc(L())} dies: who to call first, telling people, the paperwork, and closing ${esc(possessive({ name: L() }))} Shoal. So no one has to think of it in the moment.</p>
+    <div class="card info"><img src="${A("lock.svg")}" alt=""><span class="small">Nothing is added now. You can look at the list and close it, come back to it any time, or never.</span></div>
+  </div>
+  ${duo(["Not now", "back"], ["Show me the list", "pebbleAfterShow"])}`;
+};
+Object.assign(ACTIONS, {
+  pebbleAfterShow: () => { PB().after = { phase: "review", props: AFTER_TASKS().map((x) => ({ ...x, on: true })), done: [] }; render(); },
+  pebbleAfterProp: (d) => { const p = PB().after.props[+d.id]; p.on = !p.on; render(); },
+  pebbleAfterYes: () => {
+    const A2 = PB().after;
+    A2.props.filter((p) => p.on).forEach((p) => {
+      const t = pebTask(p.n, "you", { kind: "repeat", days: [], w: 1, k: "phone", notes: `${p.m} No date: do it when you're ready.` });
+      pebLog(`Added “${t.n}” to your jar`, "From the first-days list · you said yes", { type: "task", id: t.id });
+      A2.done.push(t.n);
+    });
+    A2.phase = "done"; render();
+  },
+});
+NOTES.pebbleAfter = ["Pebble: when the time comes", ["From a quiet row at the bottom of the Pebble tab. Opens to an explanation first, never to the list. Nothing is added unless the family taps Show me the list and then Yes, add these.", "The list follows the Figma frames “After · The first hours” and “Closing Dad's Shoal”: call hospice (not 911), tell the people who need to know, choose a funeral home, death certificates, pause deliveries, close Dad's Shoal (keep a stone, grief support).", "Every task is added as needed, with no date, so no stone turns urgent and no reminder goes out. Each one is in What Pebble did, with Undo."]];
+
 /* ---------- Talking to Pebble ---------- */
 
 const PEB_SAMPLES = [
@@ -607,7 +685,7 @@ function pebbleTerms(notes) {
 
 const MONEY = /\b(bill|bills|insurance|pay|paying|cost|costs|medi-?cal|medicare|claim|grant|money|copay|afford)\b/i;
 function pebbleTaskHelp(t) {
-  if (!pebbleOn() || t.done) return "";
+  if (!pebbleActive() || t.done) return "";
   const money = MONEY.test(t.n) || t.cat === "Money & paperwork";
   if (!money) return "";
   return `<div class="peb-aside">${pebFig("idle", "s44")}<div class="pa-btns"><button class="peb-chip" data-act="pebbleCostsFor" data-id="${t.id}">Find help paying</button></div></div>`;
@@ -660,7 +738,7 @@ const roomOf = (p) => (p.cap == null ? null : p.cap - loadOf(p.id));
 
 // "Stretched thin": Pebble picks one of your tasks someone with room could take.
 function pebbleLighten() {
-  if (!pebbleOn()) return null;
+  if (!pebbleActive()) return null;
   const ppl = S.people.filter((p) => p.tier === "main" && p.id !== "you" && roomOf(p) > 0).sort((a, b) => roomOf(b) - roomOf(a));
   const mineNow = active().filter((t) => t.who === "you" && !t.handoff).sort((a, b) => isUrgent(a) - isUrgent(b) || (a.w || 2) - (b.w || 2));
   for (const t of mineNow) for (const p of ppl) if (canTake(p, t) && (!p.remote || t.remote || ["phone", "paper"].includes(t.k))) return { t, p };
@@ -705,7 +783,7 @@ SCREENS.pebbleMonth = () => `${navtop("People")}
   ${duo(["Not this month", "pebbleMonthSkip"], ["Move stones together", "pebbleMonthMove"])}`;
 
 function pebbleMonthEntry() {
-  if (!pebbleOn() || PB().month === "skipped") return "";
+  if (!pebbleActive() || PB().month === "skipped") return "";
   return `<button class="card peb-month" data-act="go" data-to="pebbleMonth">${pebFig("organizing", "s44")}<span class="tl-txt"><span class="n">Monthly check-in</span><span class="m">Pebble has a few things for when you're all together</span></span>${chev}</button>`;
 }
 
@@ -887,19 +965,24 @@ Object.assign(ACTIONS, {
 
 // Everything Pebble does, in one place. The tab shows only while Pebble is on in Settings.
 SCREENS.pebble = () => {
-  const n = PB().log.length;
+  const n = PB().log.length, q = PB().quiet;
   return `<div class="content app peb-page">
-    <div class="peb-hero">${pebFig("idle", "xl")}
+    ${q ? `<div class="peb-hero">${pebFig("sensitive", "xl")}
+      <h1 class="title">Quiet days are on</h1>
+      <p class="sub">I'm not noticing or suggesting anything until someone turns this off. ${esc(quietLine())}.</p>
+      <button class="btn-soft" data-act="pebbleQuiet">Turn quiet days off</button></div>`
+    : `<div class="peb-hero">${pebFig("idle", "xl")}
       <h1 class="title">Hi, I'm Pebble</h1>
       <p class="sub">Tell me what's going on. I'll sort it into tasks.</p>
-      <button class="btn-primary" data-act="pebbleAsk">Talk it through</button></div>
+      <button class="btn-primary" data-act="pebbleAsk">Talk it through</button></div>`}
     ${pebbleHomeCard()}
     ${(() => { const vb = visitBanner(); return vb ? `<button class="card peb-month" data-act="pebbleVisitOpen">${pebFig("organizing", "s44")}<span class="tl-txt"><span class="n">${esc(vb.title)}</span><span class="m">${esc(vb.body)}</span></span>${chev}</button>` : ""; })()}
     <button class="h-w wide peb-sees" data-act="pebbleLogOpen">${pebFig("confirmed", "s36")}<span class="tl-txt"><span class="k-lab">What I did</span><span class="k-note">${n ? `${n} change${n === 1 ? "" : "s"} · undo any` : "Nothing yet"}</span></span><span class="k-go" aria-hidden="true">${chev}</span></button>
     <button class="h-w wide peb-sees" data-act="pebbleSees"><span class="k-lab">What Pebble can see</span><span class="k-go" aria-hidden="true">${chev}</span></button>
     <button class="h-w wide peb-sees peb-wrong" data-act="go" data-to="wrong"><span class="tl-txt"><span class="k-lab">Something's wrong</span><span class="k-note">Who to call, right now. Not Pebble.</span></span><span class="k-go" aria-hidden="true">${chev}</span></button>
+    <button class="peb-after-row" data-act="go" data-to="pebbleAfter"><span class="tl-txt"><span class="n">When the time comes</span><span class="m">A small list for the first days after, only when you choose. ${PB().after?.phase === "done" ? "Added." : "Nothing is added until you say so."}</span></span>${chev}</button>
   </div>
   ${tabbar()}`;
 };
-NOTES.pebble = ["Pebble", ["Pebble's own tab, slimmed down: Talk it through, anything Pebble noticed right now, and What I did, the one place every change can be undone. It's in the tab bar only while Pebble is on (Settings › Pebble).", "Everything else Pebble does happens inside the flow you're already in: Hand off, a task, My jar, People, Home banners. The tab is no longer somewhere you have to go.", "Asking for help starts from a task or from a notice, never from a random open task, so there's no Find someone tile. Help with costs lives on money tasks. The monthly check-in lives in People only.", "Something's wrong, at the bottom, is the family's who-to-call screen. It's also on Home; it isn't Pebble, and Pebble says nothing on it.", "Pebble never sees Dad's care page and never gives medical advice."]];
+NOTES.pebble = ["Pebble", ["Pebble's own tab, slimmed down: Talk it through, anything Pebble noticed right now, and What I did, the one place every change can be undone. It's in the tab bar only while Pebble is on (Settings › Pebble).", "Everything else Pebble does happens inside the flow you're already in: Hand off, a task, My jar, People, Home banners. The tab is no longer somewhere you have to go.", "Asking for help starts from a task or from a notice, never from a random open task, so there's no Find someone tile. Help with costs lives on money tasks. The monthly check-in lives in People only.", "Something's wrong, at the bottom, is the family's who-to-call screen. It's also on Home; it isn't Pebble, and Pebble says nothing on it.", "When the time comes, the quiet last row, explains first and only loads the first-days list when the family chooses it.", "On quiet days (Settings › Pebble) the hero says so and who turned it on, Talk it through rests, and only What I did and Something's wrong stay.", "Pebble never sees Dad's care page and never gives medical advice."]];
 

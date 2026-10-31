@@ -171,3 +171,10 @@
 .peb-follow .small { line-height: 19px; }
 .peb-follow .linkish { font-size: inherit; }
 .peb-follow .switch { flex: none; margin-left: auto; }
+
+/* When the time comes: a quiet last row on the Pebble tab, not a card that asks for attention. */
+.peb-after-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; margin: 4px 0 12px; text-align: left; border-radius: 20px; background: rgba(255, 255, 255, 0.45); border: 1px dashed var(--dash, rgba(90, 100, 120, 0.35)); color: var(--ink); }
+.peb-after-row .n { font-weight: 600; font-size: 14.5px; }
+.peb-after-row .m { white-space: normal; }
+.peb-after-row .tl-txt { flex: 1; }
+.peb-hero .btn-soft { height: 44px; padding: 0 22px; }
