@@ -31,6 +31,7 @@ function homeNew() {
   return `<div class="home2">
   <div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
+      <button class="sos" data-act="go" data-to="wrong">Something's wrong</button>
       <button class="k-look" data-act="homeLook">Old look</button>
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     ${notifStack(urgent, finished)}
@@ -142,4 +143,5 @@ NOTES.home = ["Home", ["An overview, like a phone's home screen: a bright ombre,
   "The home kit widget is night blue like the kit screen, so you know where it goes. Without a kit, that spot shows who's helping.",
   "The pill at the top right switches to the old look to compare.",
   "Pebble: when Pebble notices something (an urgent step no one has, a task with no one, a hand-off that was declined), it's a banner in this same stack, on the pearl surface so it reads as a suggestion. Two answers, one tap each: Ask [name] opens Hand off with that person picked and the note written, so what's left is Send; Not now means not now. Swiping it away is Not now too. Pebble asks no one itself.",
+  "“Something's wrong”, top left, is always one tap away: who to call, in order, for a moment of panic. It's there with Pebble on or off, and on quiet days.",
   "Pebble: after Ana sends a visit note, a banner says how many things in it could become tasks (“Ana's visit note has 2 things to add”). Review opens them; nothing opens or is added on its own."]];

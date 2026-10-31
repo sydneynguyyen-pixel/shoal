@@ -8,7 +8,7 @@ const shownTabs = () => TABS.filter(([id]) => id !== "pebble" || pebbleOn());
 const APP_SCREENS = new Set([
   ...SETUP, ...TABS.map((t) => t[0]),
   "task", "handoff", "newTask", "newStone", "person", "kit", "stones", "stoneDetail",
-  "done", "thanks", "clear", "recap", "notifications", "recapSettings", "resources",
+  "done", "thanks", "clear", "recap", "notifications", "recapSettings", "resources", "wrong",
 ]);
 const KIT = 36;
 const BATTERY = [82, 64, 91, 18, 77, 55, 100, 12, 69, 88, 73, 95, 60, 47, 84, 70, 93, 66, 79, 90, 58, 86, 75, 97, 81, 68, 92, 74, 87, 63, 99, 71, 85, 78, 94, 67];
@@ -502,6 +502,7 @@ SCREENS.home = () => {
   const today = active().filter((t) => occurs(t, day)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   return `<div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
+      <button class="sos" data-act="go" data-to="wrong">Something's wrong</button>
       ${hasKit() ? `<button class="bell" data-act="go" data-to="kit" aria-label="Home kit">${icon("kit")}${notCharging().length && (!S.setup || S.setup.stones) ? `<i class="dot warn"></i>` : ""}</button>` : ""}
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
@@ -923,6 +924,53 @@ SCREENS.resources = () => {
   </div>`;
 };
 
+/* ---------- Something's wrong ---------- */
+
+// Built to the hospice nurse's brief: "think of them in a moment of panic". One screen, always one tap from
+// Home and the Pebble tab, with the people to call in order. The numbers are the same ones as Help and
+// resources, plus a spot for the family's own faith or cultural contacts. No Pebble here, by design.
+const WRONG_NUMBERS = {
+  nurse: ["Ana, hospice nurse", "(408) 555-0139"], rosa: ["Rosa, social worker", "(408) 555-0167"],
+  pharmacy: ["CVS on Saratoga Ave", "(408) 555-0110"], lifeline: ["988 Lifeline", "988"],
+};
+const wrong = () => (S.app.wrong ??= { provider: null, faith: [] });
+SCREENS.wrong = () => {
+  const W = wrong(), l = L();
+  const call = (n, m, icon, num, label = "Call") => `<div class="srow">${resIcon(icon)}<span class="tl-txt"><span class="n">${n}</span><span class="m">${m}</span></span><button class="pill-btn" data-act="toast" data-msg="Calling ${esc(n)} at ${esc(num)}">${label}</button></div>`;
+  return `${navtop("Back")}
+  <div class="content wrong-page">
+    <h1 class="title">Something's wrong</h1>
+    <p class="sub">Take a breath. Here's who to call, in order. You don't have to explain it well.</p>
+    <div class="card res-911 w-first">
+      <h2>Call ${HOSPICE.name} first, not 911.</h2>
+      <p>A nurse answers day and night at <b>${HOSPICE.line}</b>. For breathing, pain, a fall, a change you don't understand, or if you think ${esc(l)} has died.</p>
+      <p class="res-why">Calling 911 can mean paramedics try to revive ${esc(l)}, which may go against ${esc(possessive({ name: l }))} wishes.</p>
+      <div class="res-actions"><button class="btn-primary" data-act="toast" data-msg="Calling ${HOSPICE.name} at ${HOSPICE.line}">Call hospice now</button></div>
+    </div>
+    <p class="section-h">Then, if you need them</p>
+    <div class="card tlist">
+      ${call(...WRONG_NUMBERS.nurse.slice(0, 1), `Visits Tuesday and Friday · ${WRONG_NUMBERS.nurse[1]}`, "heart", WRONG_NUMBERS.nurse[1])}
+      ${W.provider ? call(W.provider.n, `${esc(possessive({ name: l }))} main doctor · ${esc(W.provider.how)}`, "person", W.provider.how)
+        : `<button class="srow" data-act="wrongAddSheet" data-id="provider">${resIcon("person")}<span class="tl-txt"><span class="n">${esc(possessive({ name: l }))} main doctor</span><span class="m">Add their name and number, so it's here when you need it</span></span>${chev}</button>`}
+    </div>
+    <p class="section-h">Supplies and medicine</p>
+    <div class="card tlist">
+      ${call(`${HOSPICE.name} supplies`, `Comfort kit, bed, oxygen, pads · ${HOSPICE.line}`, "home", HOSPICE.line)}
+      ${call("Pharmacy", `${WRONG_NUMBERS.pharmacy[0]} · ${WRONG_NUMBERS.pharmacy[1]}`, "coin", WRONG_NUMBERS.pharmacy[1])}
+    </div>
+    <p class="section-h">Someone to talk to</p>
+    <div class="card tlist">
+      ${call(WRONG_NUMBERS.rosa[0], `Weekdays · counseling, money, paperwork · ${WRONG_NUMBERS.rosa[1]}`, "person", WRONG_NUMBERS.rosa[1])}
+      ${call(WRONG_NUMBERS.lifeline[0], "Call or text 988, any time, for anyone in the family", "phone", "988")}
+      <button class="srow" data-act="resSheet" data-id="grief">${resIcon("heart")}<span class="tl-txt"><span class="n">${RESOURCES.grief.title}</span><span class="m">${RESOURCES.grief.sub}</span></span>${chev}</button>
+    </div>
+    <p class="section-h">Faith or cultural support<button class="linkish" data-act="wrongAddSheet" data-id="faith">Add someone</button></p>
+    <div class="card tlist">${W.faith.length ? W.faith.map((f, i) => `<div class="srow">${resIcon("heart")}<span class="tl-txt"><span class="n">${esc(f.n)}</span><span class="m">${esc(f.how)}</span></span><button class="pill-btn" data-act="toast" data-msg="Calling ${esc(f.n)} at ${esc(f.how)}">Call</button><button class="x-btn" data-act="wrongDrop" data-id="${i}" aria-label="Remove"><span aria-hidden="true">×</span></button></div>`).join("")
+      : `<p class="small empty">A pastor, imam, rabbi, elder, or anyone your family would want called. Add them now, so no one has to look later.</p>`}</div>
+    <p class="small center">Everyone in the family sees this page, with Pebble on or off.</p>
+  </div>`;
+};
+
 function signedInAs() {
   const a = S.auth || {};
   if (a.via === "google") return "Signed in with Google";
@@ -1220,10 +1268,11 @@ Object.assign(NOTES, {
   recap: ["Weekly recap", ["Sunday recap. No streaks or rankings, only what went well."]],
   notifications: ["Notifications", ["Needs you: handoff requests and your urgent tasks. Each has a button. Stone alerts live in the home kit.", "Updates: things others finished and thank-yous. A badge on each picture shows the kind."]],
   recapSettings: ["Thank-yous and recaps", ["Turn each one off, or go quiet for a while."]],
+  wrong: ["Something's wrong", ["Built to the hospice nurse's brief from our research: “think of them in a moment of panic”. Always one tap away, from the pill at the top of Home and from the Pebble tab.", "One screen, in order: call hospice first, not 911 (with why, in terms of the loved one's wishes), then the nurse and the main doctor, where supplies and medicine come from, someone to talk to (the social worker, 988, grief support), and a spot for faith or cultural contacts the family adds.", "Reuses the numbers and the grief sheet from Help and resources. No Pebble on this screen, on purpose. The Talk it through emergency path opens this same screen."]],
   resources: ["Help and resources", ["People to call first, then support (grief, money), each with a few gentle lines and links to trusted outside sources: 988, CaringInfo, Medicare, the FTC, USA.gov.", "End-of-life topics (what to do when someone dies, funeral planning) stay folded behind a gentle note until someone chooses to open them, with an offer to talk it through with the social worker instead.", "\"Call hospice first, not 911\" is explained in terms of the loved one's wishes, not as a rule."]],
 });
 
-const APP_NAV = ["ready", "home", "myjar", "task", "newTask", "peopleTab", "person", "pebble", "settings", "resources", "kit", "stones", "done", "clear", "recap", "notifications"];
+const APP_NAV = ["ready", "home", "myjar", "task", "newTask", "peopleTab", "person", "pebble", "settings", "resources", "wrong", "kit", "stones", "done", "clear", "recap", "notifications"];
 
 function renderAppNotes() {
   const [title, bullets] = NOTES[S.screen] || ["", []];
@@ -1436,6 +1485,22 @@ Object.assign(ACTIONS, {
       <div class="actions">${r.gentle ? `<button class="btn-soft" data-act="toast" data-msg="Calling Rosa at (408) 555-0167">Talk to Rosa</button>` : ""}<button class="btn-soft" data-act="closeSheet">Done</button></div>`);
   },
   resToggle: () => { S.app.resOpen = !S.app.resOpen; render(); },
+  wrongAddSheet: (d) => {
+    S.app.wrongDraft = { kind: d.id, n: "", how: "" };
+    const provider = d.id === "provider";
+    openSheet(`<h3>${provider ? `${esc(possessive({ name: L() }))} main doctor` : "Someone to call"}</h3><p class="small">${provider ? "Their name and the number the family should call." : "Who they are to the family, and how to reach them."}</p>
+      <label class="card field"><span class="eyebrow">${provider ? "Doctor" : "Name"}</span><input data-input="wrongName" placeholder="${provider ? "Dr. Alvarez" : "Pastor Jim"}" aria-label="Name" autocomplete="off"></label>
+      <label class="card field"><span class="eyebrow">${provider ? "Number" : "Number or how to reach them"}</span><input data-input="wrongHow" placeholder="(555) 555-0123" aria-label="How to reach them" autocomplete="off"></label>
+      <button class="btn-primary" data-act="wrongAdd">Add</button>`);
+  },
+  wrongAdd: () => {
+    const d = S.app.wrongDraft;
+    if (!d.n.trim()) { toast("Add a name first"); return; }
+    if (d.kind === "provider") wrong().provider = { n: d.n.trim(), how: d.how.trim() || "number to add" };
+    else wrong().faith.push({ n: d.n.trim(), how: d.how.trim() || "number to add" });
+    closeSheet(); render(); toast("Added. Everyone in the family sees it here.");
+  },
+  wrongDrop: (d) => { wrong().faith.splice(+d.id, 1); render(); },
   cancelHandoff: () => { curTask().handoff = null; render(); toast("Request canceled"); },
   newTask: () => {
     ensureAppData();
@@ -1582,6 +1647,8 @@ const APP_INPUT = {
   },
   draftNote: (v) => { draft().notes = v; },
   handoffNote: (v) => { S.app.note = v; },
+  wrongName: (v) => { S.app.wrongDraft.n = v; },
+  wrongHow: (v) => { S.app.wrongDraft.how = v; },
   thanksNote: (v) => { S.app.thanksNote = v; },
 };
 

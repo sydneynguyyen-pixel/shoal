@@ -543,7 +543,7 @@ SCREENS.pebbleTalk = () => {
     <p class="sub center">I can't help with symptoms or medicine. ${esc(L())}'s hospice team can, any time of day or night.</p>
     <div class="card info"><img src="${A("lock.svg")}" alt=""><span class="small">Pebble didn't save anything you said. It never contacts hospice on its own. You decide.</span></div>
   </div>
-  ${solo("Call hospice", "pebbleCallHospice", ["Go back", "pebbleRelisten"])}`;
+  ${solo("Who to call now", "pebbleWrong", ["Go back", "pebbleRelisten"])}`;
 
   if (T.phase === "review") {
     const on = T.props.filter((p) => p.on && p.kind !== "dup").length;
@@ -712,7 +712,7 @@ function pebbleMonthEntry() {
 /* ---------- Notes ---------- */
 
 Object.assign(NOTES, {
-  pebbleTalk: ["Pebble: talk it through", ["Opened from Talk it through on the Pebble tab. Talk or type; the samples show each path.", "Pebble turns it into draft changes: a new task, a step on a task you already have, or asking the circle to cover something. It spots tasks you already have, so nothing doubles up.", "Medicine and symptoms are left out, and Pebble says so. Emergency words stop everything and point to hospice.", "Nothing changes until “Yes, add these.” Every change can be undone in What Pebble did."]],
+  pebbleTalk: ["Pebble: talk it through", ["Opened from Talk it through on the Pebble tab. Talk or type; the samples show each path.", "Pebble turns it into draft changes: a new task, a step on a task you already have, or asking the circle to cover something. It spots tasks you already have, so nothing doubles up.", "Medicine and symptoms are left out, and Pebble says so. Emergency words stop everything: Pebble saves nothing and opens Something's wrong, the family's who-to-call screen.", "Nothing changes until “Yes, add these.” Every change can be undone in What Pebble did."]],
   pebbleCosts: ["Pebble: help with costs", ["Only from a money or paperwork task (Find help paying).", "Programs that may fit, each with its source and its first step. “Add the first step” puts that step on the task you came from, not a new task: the phone-number placeholder, what to have ready, and the source sit in the step's detail.", "Pebble finds and explains. Only the program decides who qualifies."]],
   pebbleMonth: ["Pebble: monthly check-in", ["From People, for the monthly reset everyone does together.", "Patterns only: who's carrying more than the room they set, what has no one, what slipped.", "Rings show room, never why. The one suggested move only happens when the family says yes."]],
   pebbleLog: ["What Pebble did", ["Lives in one place: the Pebble tab (What I did). The Settings › Pebble row just links here.", "A record of every change Pebble proposed and you said yes to, with Undo."]],
@@ -784,7 +784,8 @@ Object.assign(ACTIONS, {
   pebbleYes: () => { pebbleCommit(); render(); },
   pebbleClose: () => { stopMic(); tabTo("home"); },
   pebblePair: () => { const id = S.app.pebNew; S.app.pebNew = null; S.app.stoneFor = id; S.history = ["home"]; lastDir = "fwd"; S.screen = "newStone"; appEnter("newStone"); render(); },
-  pebbleCallHospice: () => toast("In the real app this calls the hospice number the family saved."),
+  // The emergency path ends on Something's wrong, the same screen as everywhere else. Pebble steps aside.
+  pebbleWrong: () => { stopMic(); go("wrong"); },
 
   pebbleNotNow: (d) => { PB().dismissed[d.id] = true; render(); toast("Okay. Pebble won't bring this up again."); },
   // One tap from any surface the notice shows on: Hand off, pick made, note written.
@@ -896,8 +897,9 @@ SCREENS.pebble = () => {
     ${(() => { const vb = visitBanner(); return vb ? `<button class="card peb-month" data-act="pebbleVisitOpen">${pebFig("organizing", "s44")}<span class="tl-txt"><span class="n">${esc(vb.title)}</span><span class="m">${esc(vb.body)}</span></span>${chev}</button>` : ""; })()}
     <button class="h-w wide peb-sees" data-act="pebbleLogOpen">${pebFig("confirmed", "s36")}<span class="tl-txt"><span class="k-lab">What I did</span><span class="k-note">${n ? `${n} change${n === 1 ? "" : "s"} · undo any` : "Nothing yet"}</span></span><span class="k-go" aria-hidden="true">${chev}</span></button>
     <button class="h-w wide peb-sees" data-act="pebbleSees"><span class="k-lab">What Pebble can see</span><span class="k-go" aria-hidden="true">${chev}</span></button>
+    <button class="h-w wide peb-sees peb-wrong" data-act="go" data-to="wrong"><span class="tl-txt"><span class="k-lab">Something's wrong</span><span class="k-note">Who to call, right now. Not Pebble.</span></span><span class="k-go" aria-hidden="true">${chev}</span></button>
   </div>
   ${tabbar()}`;
 };
-NOTES.pebble = ["Pebble", ["Pebble's own tab, slimmed down: Talk it through, anything Pebble noticed right now, and What I did, the one place every change can be undone. It's in the tab bar only while Pebble is on (Settings › Pebble).", "Everything else Pebble does happens inside the flow you're already in: Hand off, a task, My jar, People, Home banners. The tab is no longer somewhere you have to go.", "Asking for help starts from a task or from a notice, never from a random open task, so there's no Find someone tile. Help with costs lives on money tasks. The monthly check-in lives in People only.", "Pebble never sees Dad's care page and never gives medical advice."]];
+NOTES.pebble = ["Pebble", ["Pebble's own tab, slimmed down: Talk it through, anything Pebble noticed right now, and What I did, the one place every change can be undone. It's in the tab bar only while Pebble is on (Settings › Pebble).", "Everything else Pebble does happens inside the flow you're already in: Hand off, a task, My jar, People, Home banners. The tab is no longer somewhere you have to go.", "Asking for help starts from a task or from a notice, never from a random open task, so there's no Find someone tile. Help with costs lives on money tasks. The monthly check-in lives in People only.", "Something's wrong, at the bottom, is the family's who-to-call screen. It's also on Home; it isn't Pebble, and Pebble says nothing on it.", "Pebble never sees Dad's care page and never gives medical advice."]];
 

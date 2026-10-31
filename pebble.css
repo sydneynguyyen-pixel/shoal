@@ -117,7 +117,10 @@
 .peb-tile .peb-fig { margin-bottom: auto; }
 .peb-tile .k-lab { margin-top: 12px; }
 .peb-tile .k-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.peb-sees { flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 16px; }
+.peb-sees { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 12px; }
+.peb-sees .tl-txt { flex: 1; }
+.peb-sees .k-note { margin-top: 2px; }
+.peb-wrong .k-lab { color: var(--alert); }
 
 /* Pearl: anything Pebble is suggesting or drafting, before you say yes. A near-white fill with a shell-like
    edge, so it reads apart from the plain white cards. The Pebble figure always rides along, so color isn't the only cue. */
