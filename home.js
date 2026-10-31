@@ -64,8 +64,7 @@ function notifStack(urgent, finished) {
   if (u && !S.app.dismissed[`u${u.id}`]) items.push({ key: `u${u.id}`, act: "openTask", id: u.id, cls: "urgent", style: `--u:${urgentHex()}`,
     icon: gemOf(u, { size: "s" }), title: `${u.n}`, body: `${cap(dueLabel(u))} · ${nameOf(u.who)}${urgent.length > 1 ? ` · +${urgent.length - 1} urgent` : ""}`, cta: "View" });
   // Pebble's notice is a banner like the others (pearl, so it reads as a suggestion), with its two answers right there.
-  const peb = typeof pebbleBanner === "function" && pebbleBanner();
-  if (peb) items.push(peb);
+  if (typeof pebbleBanners === "function") items.push(...pebbleBanners());
   if (finished) items.push({ key: finished.id, act: "sayThanks", id: finished.id, cls: "done",
     icon: avatar(person(finished.who), "s28"), title: `${person(finished.who).name.split(" ")[0]} finished ${finished.n}`, body: finished.doneAt || "Today", cta: "Thank" });
   if (!items.length) return "";

@@ -597,8 +597,9 @@ function handoffCard(t) {
   const ids = handTargets(h), many = ids.length > 1;
   const to = person(handWho(h)) || { name: "Someone" };
   const body = {
-    pending: [many ? (h.all ? "Asked everyone who can" : `Asked ${namesList(ids)}`) : `Waiting on ${to.name}`, many ? "The first to say yes takes it. Everyone can see it's being handed off." : "Everyone can see it's being handed off.", `<button class="linkish" data-act="cancelHandoff">Cancel</button>`],
-    accepted: [`${to.name} said yes`, `${h.when} · it's in ${possessive(to)} jar now${many ? ". The others were told it's covered." : ""}`, ""],
+    pending: [many ? (h.all ? "Asked everyone who can" : `Asked ${namesList(ids)}`) : `Waiting on ${to.name}`,
+      h.pebbleFollow ? `${nameOf(h.pebbleFollow.prev)} didn't answer by ${whenWord(h.pebbleFollow.when)}, so Pebble asked ${to.name} (you said it could).` : h.follow ? `If no one says yes by ${whenWord(h.follow.when)}, Pebble asks ${nameOf(h.follow.who)} next. Everyone can see it's being handed off.` : many ? "The first to say yes takes it. Everyone can see it's being handed off." : "Everyone can see it's being handed off.", `<button class="linkish" data-act="cancelHandoff">Cancel</button>`],
+    accepted: [`${to.name} said yes`, `${h.when} · it's in ${possessive(to)} jar now${many ? ". The others were told it's covered." : ""}${h.pebbleFollow ? ` · after ${nameOf(h.pebbleFollow.prev)} didn't answer, Pebble asked ${to.name} (you said it could)` : ""}`, ""],
     declined: [`${to.name} can't take it`, `“${h.why}”`, `<button class="pill-btn" data-act="handoff">Ask someone else</button>`],
   }[h.status];
   const pic = h.status === "pending" && many ? `<span class="stack hand-stack">${ids.slice(0, 3).map((id) => avatar(person(id) || { name: "?" }, "s24")).join("")}</span>` : avatar(to, "s36");
@@ -674,6 +675,7 @@ SCREENS.handoff = () => {
     </div>
     <p class="label hand-note">Note <span class="small">optional</span>${pebbleOn() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
     <textarea class="note-input" data-input="handoffNote" placeholder="Anything they should know?">${esc(S.app.note)}</textarea>
+    ${typeof pebbleFollowRow === "function" ? pebbleFollowRow(t) : ""}
     ${target ? `<p class="small" style="text-align:center">We'll ${target.tier === "main" && target.via !== "text" ? "send it to the app" : "text"} ${esc(target.name)}.</p>`
       : picked.length > 1 ? `<p class="small" style="text-align:center">${esc(namesList(picked))} each get the request${texts ? ` (${texts === 1 ? "one gets a text" : `${texts} get a text`})` : ""}. Once someone says yes, the rest are told it's covered.</p>` : ""}
   </div>
@@ -1245,7 +1247,7 @@ function appEnter(screen) {
   if (screen === "paired") { const t = firstTask(); if (t && !stoneOf(t)) pairStone(t.id); }
   if (screen === "find") S.app.blink = null;
   if (screen === "notifications") S.app.seenNotes = true;
-  if (screen === "handoff") { S.app.handTo = undefined; S.app.note = ""; S.app.handStep = null; S.app.notePebble = false; }
+  if (screen === "handoff") { S.app.handTo = undefined; S.app.note = ""; S.app.handStep = null; S.app.notePebble = false; S.app.follow = null; }
 }
 
 function tabTo(screen) {
@@ -1401,6 +1403,8 @@ Object.assign(ACTIONS, {
     render();
     const stay = t.who === "you" ? "with you" : `with ${nameOf(t.who)}`;
     toast(many ? `Asked ${t.handoff.all ? "everyone" : namesList(to)}. It stays ${stay} until someone says yes.` : `Asked ${nameOf(to[0])}. It stays ${stay} until they say yes.`);
+    // With Pebble's follow-up on, the prototype plays the no-answer path instead: Pebble asks the next person, as agreed.
+    if (typeof pebbleFollowArm === "function" && pebbleFollowArm(t, to)) return;
     // The prototype answers for them. One person: yes first, then no, so both paths can be shown.
     // Several people: someone always says yes, and the rest are told it's covered.
     const yes = many || (S.app.handReplies = (S.app.handReplies || 0) + 1) % 2 === 1;

@@ -200,25 +200,28 @@ function pebbleHomeCard() {
       <button class="btn-ghost sm" data-act="pebbleNotNow" data-id="${x.key}">Not now</button></div>
   </div>`;
 }
-// The same notice as a Home banner, for the iOS-style stack in home.js.
-function pebbleBanner() {
+// Pebble's banners for the iOS-style stack in home.js: the notice, and anything it did on the family's say-so.
+function pebbleBanners() {
+  const out = [];
   const x = pebbleNotice();
-  if (!x) return null;
-  return { key: `peb:${x.key}`, id: x.key, act: "pebbleAskFor", cls: "pebble", icon: pebFig("noticing", "s28"), title: x.title, body: x.body, cta: x.cta, alt: ["Not now", "pebbleNotNow"] };
+  if (x) out.push({ key: `peb:${x.key}`, id: x.key, act: "pebbleAskFor", cls: "pebble", icon: pebFig("noticing", "s28"), title: x.title, body: x.body, cta: x.cta, alt: ["Not now", "pebbleNotNow"] });
+  followedTasks().filter((t) => !PB().dismissed[`follow:${t.id}`]).forEach((t) => out.push({ key: `peb:follow:${t.id}`, id: t.id, act: "openTask", cls: "pebble", icon: pebFig("confirmed", "s28"), title: followLine(t), body: `“${t.n}” · you said it could · undo in What Pebble did`, cta: "View" }));
+  return out;
 }
 
 /* ---------- Helping with a hand-off ---------- */
 
 // Asking for help is always Hand off. Pebble only suggests who, and can word the note.
 const MINUTES = { 1: "20 minutes", 2: "an hour or so", 3: "a few hours" };
-function pebblePick(t) {
-  if (!pebbleOn()) return null;
+// Everyone who could take this task and has room for it, most room first.
+function pebblePicks(t, exclude = []) {
+  if (!pebbleActive()) return [];
   const hrs = WEIGHT_HOURS[t.w || 2] || 1;
   const near = !t.remote && ["drive", "there", "cook"].includes(t.k);
-  const ok = S.people.filter((p) => p.id !== "you" && p.id !== t.who && p.cap != null && canTake(p, t) && !(near && p.remote) && roomOf(p) >= hrs);
-  const p = ok.sort((a, b) => roomOf(b) - roomOf(a))[0];
-  return p ? { p, why: `${roomOf(p)} hour${roomOf(p) === 1 ? "" : "s"} of room this week${near && !p.remote ? ", and close by" : ""}` } : null;
+  const ok = S.people.filter((p) => p.id !== "you" && p.id !== t.who && !exclude.includes(p.id) && p.cap != null && canTake(p, t) && !(near && p.remote) && roomOf(p) >= hrs);
+  return ok.sort((a, b) => roomOf(b) - roomOf(a)).map((p) => ({ p, why: `${roomOf(p)} hour${roomOf(p) === 1 ? "" : "s"} of room this week${near && !p.remote ? ", and close by" : ""}` }));
 }
+const pebblePick = (t) => pebblePicks(t)[0] || null;
 // The note names the task and the date. Never notes, never health details.
 function pebbleNoteText(t, step) {
   const due = t.kind === "once" ? dueLabel(t) : repeatLabel(t.days).toLowerCase();
@@ -244,6 +247,58 @@ function pebbleHandoff(taskId, step = null, key = null) {
   S.app.notePebble = true;
   render();
 }
+
+/* ---------- Following up, without being asked again ---------- */
+
+// One optional line on Hand off: "If no one says yes by [time], ask [next person] next." Off by default.
+// If it's on and the first person doesn't answer, Pebble sends the same ask to the next person with room,
+// says so in a notification, and logs it with Undo. It never asks anyone the family didn't agree to.
+const FOLLOW_WHEN = ["In 2 hours", "6 PM", "Tonight", "Tomorrow morning"];
+const whenWord = (w) => (/\d/.test(w) ? w : w.toLowerCase()); // "by 6 PM", "by tonight"
+function pebbleFollow(t) {
+  const picked = Array.isArray(S.app.handTo) ? S.app.handTo : [];
+  const next = pebblePicks(t, picked)[0];
+  S.app.follow ??= { on: false, who: null, when: FOLLOW_WHEN[1] };
+  const F = S.app.follow;
+  if (!F.who || picked.includes(F.who)) F.who = next ? next.p.id : null;
+  return F;
+}
+function pebbleFollowRow(t) {
+  if (!pebbleActive() || t.steps[S.app.handStep]) return "";
+  const picked = Array.isArray(S.app.handTo) ? S.app.handTo : [];
+  if (picked.length !== 1) return "";
+  const F = pebbleFollow(t);
+  if (!F.who) return "";
+  return `<div class="peb-hint peb-follow">${pebFig("awaiting_confirmation", "s28")}<span class="small">If no one says yes by <button class="linkish" data-act="pebbleFollowWhen">${esc(whenWord(F.when))}</button>, ask <button class="linkish" data-act="pebbleFollowWho">${esc(nameOf(F.who))}</button> next.</span>${toggle(F.on, "pebbleFollowOn", "", "Follow up if no one answers")}</div>`;
+}
+// Called by sendHandoff. True means Pebble's follow-up runs the prototype's pretend replies instead.
+function pebbleFollowArm(t, to) {
+  const F = S.app.follow;
+  if (!pebbleActive() || !F?.on || !F.who || !Array.isArray(to) || to.length !== 1) return false;
+  t.handoff.follow = { who: F.who, when: F.when };
+  const first = to[0];
+  // No answer from the first person. Pebble asks the next one, as agreed, and says so.
+  setTimeout(() => {
+    if (t.handoff?.status !== "pending" || t.handoff.to[0] !== first || !pebbleActive()) return;
+    const prev = t.handoff;
+    t.handoff = { to: [F.who], from: prev.from, status: "pending", note: prev.note, pebbleFollow: { prev: first, when: F.when } };
+    pebLog(`Asked ${nameOf(F.who)} about “${t.n}” after ${nameOf(first)} didn't answer`, `You said it could, by ${whenWord(F.when)} · set on Hand off`, { type: "handoff", id: t.id, handoff: prev });
+    PB().followNew = t.id;
+    S.app.seenNotes = false;
+    render(); toast(`${nameOf(first)} didn't answer, so Pebble asked ${nameOf(F.who)} (you said it could)`);
+    // Then the next person says yes.
+    setTimeout(() => {
+      if (t.handoff?.status !== "pending" || !t.handoff.pebbleFollow) return;
+      Object.assign(t.handoff, { status: "accepted", when: "Just now", taker: F.who });
+      t.who = F.who; S.app.seenNotes = false;
+      render(); toast(`${nameOf(F.who)} said yes to “${t.n}”`);
+    }, 4000);
+  }, 4000);
+  return true;
+}
+// The follow-up, once it happened, as a notification and a Home banner.
+const followedTasks = () => S.tasks.filter((t) => t.handoff?.pebbleFollow);
+const followLine = (t) => `${nameOf(t.handoff.pebbleFollow.prev)} didn't answer, so Pebble asked ${nameOf(handWho(t.handoff))}`;
 
 /* ---------- Talking to Pebble ---------- */
 
@@ -440,7 +495,8 @@ NOTES.myjar[1].push("Pebble: answering “Stretched thin” gets one suggestion 
 NOTES.peopleTab[1].push("Pebble: the monthly check-in lives here, and only here. It opens what Pebble noticed this month, for the whole family to look at together.");
 NOTES.settings[1].push("Pebble: the What Pebble did row opens the list in the Pebble tab, where every change Pebble made after someone said yes can be undone.");
 NOTES.asNurse[1].push("Pebble: questions the family saved from plain-words terms (“Ask the nurse”) show up here as Questions from the family, so Ana sees them before the visit.");
-NOTES.notifications[1].push("Pebble: anything Pebble noticed is a notification here too, with the same two answers as the Home banner: Ask [name], which opens Hand off with the pick made and the note written, or Not now.");
+NOTES.notifications[1].push("Pebble: anything Pebble noticed is a notification here too, with the same two answers as the Home banner: Ask [name], which opens Hand off with the pick made and the note written, or Not now. When a follow-up ran (“Nora didn't answer, so Pebble asked Bill”), that's here as well.");
+NOTES.handoff[1].push("Pebble: suggests who has room and writes the note. With one person picked, one optional line: “If no one says yes by [time], ask [next person] next.” Off by default, one tap to turn on; the time and the person are tappable. In the prototype, turning it on plays the no-answer path: the first person doesn't reply, Pebble sends the same ask to the next person, a notification says so (“you said it could”), and What Pebble did has Undo, which puts the ask back with the first person.");
 
 /* ---------- Pebble in notifications ---------- */
 
@@ -450,6 +506,7 @@ const pebNotifications = notifications;
 notifications = function () {
   const x = pebbleNotice();
   const list = x ? [{ kind: "pebble", needs: true, cta: x.cta, when: "Now", gem: pebFig("noticing", "s28"), n: x.title, m: `${x.body} · you decide, Pebble asks no one`, act: "pebbleAskFor", id: x.key, alt: ["Not now", "pebbleNotNow"] }] : [];
+  followedTasks().forEach((t) => list.push({ kind: "pebble", when: "Today", gem: pebFig("confirmed", "s28"), n: followLine(t), m: `“${t.n}” · you said it could on Hand off · undo in What Pebble did`, act: "openTask", id: t.id }));
   return [...list, ...pebNotifications()];
 };
 
@@ -500,6 +557,21 @@ Object.assign(ACTIONS, {
   pebbleNotNow: (d) => { PB().dismissed[d.id] = true; render(); toast("Okay. Pebble won't bring this up again."); },
   // One tap from any surface the notice shows on: Hand off, pick made, note written.
   pebbleAskFor: (d) => { const x = pebbleNotice(); if (x && x.key === d.id) pebbleHandoff(x.task, x.step || null, x.key); else render(); },
+  pebbleFollowOn: () => { const F = pebbleFollow(curTask()); F.on = !F.on; render(); },
+  pebbleFollowWhen: () => {
+    const F = pebbleFollow(curTask());
+    openSheet(`<h3>Ask the next person by</h3><p class="small">If no one has said yes by then, Pebble sends the same ask on. You'll see it when it does.</p>
+      <div class="chips">${FOLLOW_WHEN.map((w) => chip(w, F.when === w, "pebbleFollowSetWhen", w)).join("")}</div>
+      <button class="btn-primary" data-act="closeSheet">Done</button>`);
+  },
+  pebbleFollowSetWhen: (d) => { pebbleFollow(curTask()).when = d.id; closeSheet(); render(); },
+  pebbleFollowWho: () => {
+    const t = curTask(), F = pebbleFollow(t), picked = Array.isArray(S.app.handTo) ? S.app.handTo : [];
+    const list = S.people.filter((p) => p.id !== "you" && p.id !== t.who && !picked.includes(p.id) && canTake(p, t));
+    openSheet(`<h3>Who should Pebble ask next?</h3><p class="small">Only if the first person doesn't answer. Pebble suggests whoever has the most room.</p>
+      <div class="card tlist">${list.map((p) => `<button class="radio-row" data-act="pebbleFollowSetWho" data-id="${p.id}">${avatar(p, "s36")}<span class="tl-txt"><span class="n">${esc(p.name)}</span><span class="m">${roomOf(p) == null ? "Room not set" : roomOf(p) <= 0 ? "No room this week" : `${roomOf(p)} hour${roomOf(p) === 1 ? "" : "s"} of room this week`}</span></span>${check(F.who === p.id)}</button>`).join("")}</div>`);
+  },
+  pebbleFollowSetWho: (d) => { pebbleFollow(curTask()).who = d.id; closeSheet(); render(); },
   pebbleNote: () => {
     const t = curTask(), step = t.steps[S.app.handStep]?.n;
     S.app.note = pebbleNoteText(t, step);
@@ -562,6 +634,8 @@ Object.assign(ACTIONS, {
     if (u.type === "step" && t) { const i = t.steps.findIndex((s) => s.n === u.n); if (i >= 0) t.steps.splice(i, 1); }
     if (u.type === "who" && t) t.who = u.who;
     if (u.type === "nurseQ") S.app.nurseQs = nurseQs().filter((q) => q.id !== u.id);
+    // Undoing a follow-up puts the ask back with the first person, still waiting on them.
+    if (u.type === "handoff" && t) { t.handoff = u.handoff; t.who = u.handoff.from; }
     x.undone = true; render(); toast("Undone");
   },
   pebbleClearLog: () => { PB().log = []; render(); },

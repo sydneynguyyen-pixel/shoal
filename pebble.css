@@ -144,3 +144,8 @@
 .hand-note { display: flex; align-items: center; gap: 8px; }
 .hand-note .peb-chip { margin-left: auto; }
 .peb-chip.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+/* The optional follow-up line under the note. */
+.peb-follow { flex-wrap: nowrap; margin: 10px 0 4px; }
+.peb-follow .small { line-height: 19px; }
+.peb-follow .linkish { font-size: inherit; }
+.peb-follow .switch { flex: none; margin-left: auto; }
