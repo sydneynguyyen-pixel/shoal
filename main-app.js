@@ -8,7 +8,7 @@ const shownTabs = () => TABS.filter(([id]) => id !== "pebble" || pebbleOn());
 const APP_SCREENS = new Set([
   ...SETUP, ...TABS.map((t) => t[0]),
   "task", "handoff", "newTask", "newStone", "person", "kit", "stones", "stoneDetail",
-  "done", "thanks", "clear", "recap", "notifications", "recapSettings", "resources",
+  "done", "thanks", "clear", "recap", "notifications", "recapSettings", "resources", "wrong",
 ]);
 const KIT = 36;
 const BATTERY = [82, 64, 91, 18, 77, 55, 100, 12, 69, 88, 73, 95, 60, 47, 84, 70, 93, 66, 79, 90, 58, 86, 75, 97, 81, 68, 92, 74, 87, 63, 99, 71, 85, 78, 94, 67];
@@ -235,7 +235,7 @@ function familyJars({ empty = false, only = null, act = true } = {}) {
     const tag = act ? "button" : "div";
     return `<${tag} class="rjar" ${act ? `data-act="openPerson" data-id="${p.id}"` : ""}>
       <div class="glassbox"><img class="glass" src="${A("jar.png")}" alt="">
-        ${ts.map((t, i) => (pos[i] ? gemOf(t, { size: "s", cls: `${S.app?.blink === t.id ? "blink" : ""} ${dropped.has(`${p.id}:${t.id}`) ? "still" : ""}`, style: `left:${pos[i].x}px;top:${pos[i].y}px` }) : "")).join("")}${jarMore(more)}
+        ${ts.map((t, i) => (pos[i] ? gemOf(t, { size: "s", cls: `${S.app?.blink === t.id ? "blink" : ""} ${dropped.has(`${p.id}:${t.id}`) ? "still" : ""} ${typeof pebblePulse === "function" && pebblePulse(t) ? "peb-pulse" : ""}`, style: `left:${pos[i].x}px;top:${pos[i].y}px` }) : "")).join("")}${jarMore(more)}
       </div><span class="who">${esc(p.name)}</span>${empty ? "" : `<span class="jar-n">${(() => { const n = all.filter((t) => !t.done).length; return typeof pending === "function" && pending(p) ? "Invited" : n ? `${n} to do` : "All done"; })()}</span>`}</${tag}>`;
   }).join("")}</div>`;
   ppl.forEach((p) => { if (!empty) mine(p.id).forEach((t) => dropped.add(`${p.id}:${t.id}`)); });
@@ -502,7 +502,7 @@ SCREENS.home = () => {
   const today = active().filter((t) => occurs(t, day)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   return `<div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
-      ${pebbleAskBtn()}
+      <button class="sos" data-act="go" data-to="wrong">Something's wrong</button>
       ${hasKit() ? `<button class="bell" data-act="go" data-to="kit" aria-label="Home kit">${icon("kit")}${notCharging().length && (!S.setup || S.setup.stones) ? `<i class="dot warn"></i>` : ""}</button>` : ""}
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
@@ -598,8 +598,9 @@ function handoffCard(t) {
   const ids = handTargets(h), many = ids.length > 1;
   const to = person(handWho(h)) || { name: "Someone" };
   const body = {
-    pending: [many ? (h.all ? "Asked everyone who can" : `Asked ${namesList(ids)}`) : `Waiting on ${to.name}`, many ? "The first to say yes takes it. Everyone can see it's being handed off." : "Everyone can see it's being handed off.", `<button class="linkish" data-act="cancelHandoff">Cancel</button>`],
-    accepted: [`${to.name} said yes`, `${h.when} · it's in ${possessive(to)} jar now${many ? ". The others were told it's covered." : ""}`, ""],
+    pending: [many ? (h.all ? "Asked everyone who can" : `Asked ${namesList(ids)}`) : `Waiting on ${to.name}`,
+      h.pebbleFollow ? `${nameOf(h.pebbleFollow.prev)} didn't answer by ${whenWord(h.pebbleFollow.when)}, so Pebble asked ${to.name} (you said it could).` : h.follow ? `If no one says yes by ${whenWord(h.follow.when)}, Pebble asks ${nameOf(h.follow.who)} next. Everyone can see it's being handed off.` : many ? "The first to say yes takes it. Everyone can see it's being handed off." : "Everyone can see it's being handed off.", `<button class="linkish" data-act="cancelHandoff">Cancel</button>`],
+    accepted: [`${to.name} said yes`, `${h.when} · it's in ${possessive(to)} jar now${many ? ". The others were told it's covered." : ""}${h.pebbleFollow ? ` · after ${nameOf(h.pebbleFollow.prev)} didn't answer, Pebble asked ${to.name} (you said it could)` : ""}`, ""],
     declined: [`${to.name} can't take it`, `“${h.why}”`, `<button class="pill-btn" data-act="handoff">Ask someone else</button>`],
   }[h.status];
   const pic = h.status === "pending" && many ? `<span class="stack hand-stack">${ids.slice(0, 3).map((id) => avatar(person(id) || { name: "?" }, "s24")).join("")}</span>` : avatar(to, "s36");
@@ -631,11 +632,12 @@ SCREENS.task = () => {
       <div class="bar"><i style="width:${(stepsDone / t.steps.length) * 100}%"></i></div>
       ${t.steps.map((x, i) => `<div class="stp">
         <button data-act="toggleStep" data-id="${i}" aria-label="Toggle step">${check(x.done, true)}</button>
-        <span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${x.who ? `${esc(nameOf(x.who))}${x.done ? ` · ${x.when || "Today"}` : " is on it"}` : x.ask ? `Asked ${esc(namesList(x.ask))}` : "Open"}</span></span>
-        ${x.who && x.who !== "you" ? avatar(person(x.who) || { name: "?" }, "s20") : !x.who && !x.ask ? `<button class="linkish" data-act="takeStep" data-id="${i}">Take step</button>` : ""}
+        <span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${x.who ? `${esc(nameOf(x.who))}${x.done ? ` · ${x.when || "Today"}` : " is on it"}` : x.ask ? `Asked ${esc(namesList(x.ask))}` : "Open"}</span>${x.detail ? `<span class="m stp-detail">${esc(x.detail)}</span>` : ""}</span>
+        ${x.who && x.who !== "you" ? avatar(person(x.who) || { name: "?" }, "s20") : !x.who && !x.ask ? `<span class="stp-acts"><button class="linkish" data-act="takeStep" data-id="${i}">Take step</button><button class="linkish" data-act="askStep" data-id="${i}">Ask</button></span>` : ""}
       </div>`).join("")}
     </div>` : ""}
     ${t.notes ? `<div class="card notes-card"><p class="eyebrow grey">Notes</p><p>${pebbleTerms(t.notes)}</p><span class="small">Added by you${pebbleOn() && HAS_TERM.test(t.notes) ? " · tap an underlined word to explain it" : ""}</span></div>` : ""}
+    ${typeof nurseQsCard === "function" ? nurseQsCard(t) : ""}
     ${pebbleTaskHelp(t)}
   </div>
   ${t.done ? solo("Mark not done", "undoDone", null, `data-id="${t.id}"`) : duo(["Hand off", "handoff"], ["Mark done", "markDone", `data-id="${t.id}"`])}`;
@@ -672,8 +674,9 @@ SCREENS.handoff = () => {
       }).join("")}
       ${t.who && !step ? `<button class="radio-row" data-act="handTo" data-id="">${gem("open", { size: "s" })}<span class="tl-txt"><span class="n">Unassigned</span><span class="m">Glows white for whoever is free</span></span>${check(to === null)}</button>` : ""}
     </div>
-    <p class="label hand-note">Note <span class="small">optional</span>${pebbleOn() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
+    <p class="label hand-note">Note <span class="small">optional</span>${typeof pebbleActive === "function" && pebbleActive() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
     <textarea class="note-input" data-input="handoffNote" placeholder="Anything they should know?">${esc(S.app.note)}</textarea>
+    ${typeof pebbleFollowRow === "function" ? pebbleFollowRow(t) : ""}
     ${target ? `<p class="small" style="text-align:center">We'll ${target.tier === "main" && target.via !== "text" ? "send it to the app" : "text"} ${esc(target.name)}.</p>`
       : picked.length > 1 ? `<p class="small" style="text-align:center">${esc(namesList(picked))} each get the request${texts ? ` (${texts === 1 ? "one gets a text" : `${texts} get a text`})` : ""}. Once someone says yes, the rest are told it's covered.</p>` : ""}
   </div>
@@ -703,6 +706,7 @@ SCREENS.newTask = () => {
     <div class="seg big">${[["once", "One-time"], ["repeat", "Ongoing"]].map(([k, l]) => `<button class="${t.kind === k ? "on" : ""}" aria-pressed="${t.kind === k}" data-act="draftKind" data-id="${k}">${l}</button>`).join("")}</div>
     <button class="card field-row" data-act="editDraftDate"><span>${t.kind === "once" ? "Due date" : "Repeats"} <em>Required</em></span><b>${t.kind === "once" ? fmtDate(t.date) : repeatLabel(t.days)}${t.time ? ` · ${fmtTime(t.time)}` : ""}</b>${chev}</button>
     <button class="card field-row" data-act="sizeSheet" data-id="${t.id}"><span class="fr-txt">Stone size <em>${t.sizeSet || !t.n.trim() || !pebbleOn() ? "" : "Pebble's guess"}</em><small>Bigger stone, bigger job</small></span>${gem("open", { size: "xs", cls: `w${t.w}` })}<b data-size-label>${WEIGHT_LABEL[t.w]}</b>${chev}</button>
+    <div data-peb-split>${typeof pebbleSplitBlock === "function" ? pebbleSplitBlock(t) : ""}</div>
     <p class="section-h">Who can help</p>
     <div class="card nt-open">
       <div class="chips">${OPEN_TIERS.map(([k, l]) => `<button class="chip ${openTo(t).includes(k) ? "on" : ""}" aria-pressed="${openTo(t).includes(k)}" data-act="draftOpen" data-id="${k}">${l}</button>`).join("")}</div>
@@ -748,6 +752,7 @@ SCREENS.peopleTab = () => {
     <div class="apphead"><h1 class="title">People</h1><button class="btn-ghost sm" data-act="inviteSheet">+ Invite</button></div>
     <button class="sub linkline" data-act="go" data-to="recap">October · ${done} of ${all.length} tasks done together ›</button>
     ${pebbleMonthEntry()}
+    ${typeof pebbleCatchupRows === "function" ? pebbleCatchupRows() : ""}
     <div class="shelf">
       <div class="shelf-top"><span class="eyebrow grey">Family jars</span>${open ? `<span class="small">${open} unassigned</span>` : ""}</div>
       ${familyJars()}
@@ -784,6 +789,7 @@ SCREENS.person = () => {
     <div class="phead">${avatar(p, "lg")}<h1 class="title">${esc(p.name)}</h1></div>
     <p class="sub">${p.about ? esc(p.about.trim() === "Lives with" ? `Lives with ${L()}` : p.about) : p.tier === "trusted" ? "Trusted circle, light tasks" : p.tier === "kid" ? "Kid tasks, never urgent" : "Main caregiver"}</p>
     ${personGlance(p, ts)}
+    ${typeof pebbleCatchupRow === "function" ? pebbleCatchupRow(p) : ""}
     <p class="section-h">Their tasks, and why</p>
     <div class="card tlist">${ts.length ? ts.map((t) => taskLine(t, {
       meta: `${avatar(p, "s20")} ${esc(p.name)} · ${dueLabel(t)}</span><span class="why">Why: ${esc(whyOf(t, p))}`,
@@ -825,9 +831,10 @@ SCREENS.settings = () => {
     <p class="section-h">Other views</p>
     <div class="card tlist">${row("See Shoal as someone else", "Nurse, trusted circle, kids, volunteers", "roleSheet")}${row("Take the tour again", "A quick look at each page", "tourStart")}</div>
     <p class="section-h">Pebble</p>
-    <div class="card tlist"><div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">${pebbleOn() ? "Suggests tasks and a fair split, notices what's slipping, drafts asks" : "Off · you set things up by hand"}</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
+    <div class="card tlist"><div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">${pebbleOn() ? "Suggests tasks and a fair split, notices what's slipping, writes the note when you ask for help" : "Off · you set things up by hand"}</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
       ${row("What Pebble can see", "Answers, goals and what you tell it. No medical advice.", "pebbleSees")}
-      ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything` : "Nothing yet · every change shows here", "pebbleLogOpen") : ""}</div>
+      ${pebbleOn() && typeof pebbleQuietRow === "function" ? pebbleQuietRow() : ""}
+      ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything, in the Pebble tab` : "Nothing yet · it lives in the Pebble tab", "pebbleLogOpen") : ""}</div>
     <p class="section-h">Account</p>
     <div class="card tlist">${row("Sign out", "Back to the sign-in screen", "signOutSheet")}</div>
     <button class="btn-text center" data-act="restart">Restart prototype</button>
@@ -915,6 +922,53 @@ SCREENS.resources = () => {
         <p class="small">Rosa can also walk the family through it, in person or on the phone.</p>
         <div class="res-actions"><button class="btn-soft" data-act="resToggle">Open this section</button><button class="btn-soft" data-act="toast" data-msg="Calling Rosa at (408) 555-0167">Talk to Rosa</button></div>
       </div>`}
+  </div>`;
+};
+
+/* ---------- Something's wrong ---------- */
+
+// Built to the hospice nurse's brief: "think of them in a moment of panic". One screen, always one tap from
+// Home and the Pebble tab, with the people to call in order. The numbers are the same ones as Help and
+// resources, plus a spot for the family's own faith or cultural contacts. No Pebble here, by design.
+const WRONG_NUMBERS = {
+  nurse: ["Ana, hospice nurse", "(408) 555-0139"], rosa: ["Rosa, social worker", "(408) 555-0167"],
+  pharmacy: ["CVS on Saratoga Ave", "(408) 555-0110"], lifeline: ["988 Lifeline", "988"],
+};
+const wrong = () => (S.app.wrong ??= { provider: null, faith: [] });
+SCREENS.wrong = () => {
+  const W = wrong(), l = L();
+  const call = (n, m, icon, num, label = "Call") => `<div class="srow">${resIcon(icon)}<span class="tl-txt"><span class="n">${n}</span><span class="m">${m}</span></span><button class="pill-btn" data-act="toast" data-msg="Calling ${esc(n)} at ${esc(num)}">${label}</button></div>`;
+  return `${navtop("Back")}
+  <div class="content wrong-page">
+    <h1 class="title">Something's wrong</h1>
+    <p class="sub">Take a breath. Here's who to call, in order. You don't have to explain it well.</p>
+    <div class="card res-911 w-first">
+      <h2>Call ${HOSPICE.name} first, not 911.</h2>
+      <p>A nurse answers day and night at <b>${HOSPICE.line}</b>. For breathing, pain, a fall, a change you don't understand, or if you think ${esc(l)} has died.</p>
+      <p class="res-why">Calling 911 can mean paramedics try to revive ${esc(l)}, which may go against ${esc(possessive({ name: l }))} wishes.</p>
+      <div class="res-actions"><button class="btn-primary" data-act="toast" data-msg="Calling ${HOSPICE.name} at ${HOSPICE.line}">Call hospice now</button></div>
+    </div>
+    <p class="section-h">Then, if you need them</p>
+    <div class="card tlist">
+      ${call(...WRONG_NUMBERS.nurse.slice(0, 1), `Visits Tuesday and Friday · ${WRONG_NUMBERS.nurse[1]}`, "heart", WRONG_NUMBERS.nurse[1])}
+      ${W.provider ? call(W.provider.n, `${esc(possessive({ name: l }))} main doctor · ${esc(W.provider.how)}`, "person", W.provider.how)
+        : `<button class="srow" data-act="wrongAddSheet" data-id="provider">${resIcon("person")}<span class="tl-txt"><span class="n">${esc(possessive({ name: l }))} main doctor</span><span class="m">Add their name and number, so it's here when you need it</span></span>${chev}</button>`}
+    </div>
+    <p class="section-h">Supplies and medicine</p>
+    <div class="card tlist">
+      ${call(`${HOSPICE.name} supplies`, `Comfort kit, bed, oxygen, pads · ${HOSPICE.line}`, "home", HOSPICE.line)}
+      ${call("Pharmacy", `${WRONG_NUMBERS.pharmacy[0]} · ${WRONG_NUMBERS.pharmacy[1]}`, "coin", WRONG_NUMBERS.pharmacy[1])}
+    </div>
+    <p class="section-h">Someone to talk to</p>
+    <div class="card tlist">
+      ${call(WRONG_NUMBERS.rosa[0], `Weekdays · counseling, money, paperwork · ${WRONG_NUMBERS.rosa[1]}`, "person", WRONG_NUMBERS.rosa[1])}
+      ${call(WRONG_NUMBERS.lifeline[0], "Call or text 988, any time, for anyone in the family", "phone", "988")}
+      <button class="srow" data-act="resSheet" data-id="grief">${resIcon("heart")}<span class="tl-txt"><span class="n">${RESOURCES.grief.title}</span><span class="m">${RESOURCES.grief.sub}</span></span>${chev}</button>
+    </div>
+    <p class="section-h">Faith or cultural support<button class="linkish" data-act="wrongAddSheet" data-id="faith">Add someone</button></p>
+    <div class="card tlist">${W.faith.length ? W.faith.map((f, i) => `<div class="srow">${resIcon("heart")}<span class="tl-txt"><span class="n">${esc(f.n)}</span><span class="m">${esc(f.how)}</span></span><button class="pill-btn" data-act="toast" data-msg="Calling ${esc(f.n)} at ${esc(f.how)}">Call</button><button class="x-btn" data-act="wrongDrop" data-id="${i}" aria-label="Remove"><span aria-hidden="true">×</span></button></div>`).join("")
+      : `<p class="small empty">A pastor, imam, rabbi, elder, or anyone your family would want called. Add them now, so no one has to look later.</p>`}</div>
+    <p class="small center">Everyone in the family sees this page, with Pebble on or off.</p>
   </div>`;
 };
 
@@ -1136,10 +1190,14 @@ function notifications() {
 
 SCREENS.notifications = () => {
   const list = notifications();
-  const row = (x) => `<button class="notif ${x.kind} ${x.needs ? "needs" : ""}" ${x.act ? `data-act="${x.act}" data-id="${x.id || ""}"${x.to ? ` data-to="${x.to}"` : ""}` : "disabled"}>
+  const row = (x) => {
+    const b = `<button class="notif ${x.kind} ${x.needs ? "needs" : ""}" ${x.act ? `data-act="${x.act}" data-id="${x.id || ""}"${x.to ? ` data-to="${x.to}"` : ""}` : "disabled"}>
       <span class="nf-icon">${x.who ? avatar(x.who, "s36") : `<span class="nf-tile">${x.gem}</span>`}${nfBadge(x.kind)}</span>
       <span class="tl-txt"><span class="nf-kind">${NOTIF[x.kind][0]} · ${x.when}</span><span class="n">${esc(x.n)}</span><span class="m">${esc(x.m)}</span></span>
       ${x.needs && x.cta ? `<span class="pill-btn">${x.cta}</span>` : ""}</button>`;
+    // A second answer (like Pebble's "Not now") sits under the row, so both are one tap.
+    return x.alt ? `<div class="notif-pair">${b}<button class="linkish nf-alt" data-act="${x.alt[1]}" data-id="${x.id || ""}">${x.alt[0]}</button></div>` : b;
+  };
   const needs = list.filter((x) => x.needs), rest = list.filter((x) => !x.needs);
   return `${navtop("Home")}
   <div class="content">
@@ -1211,10 +1269,11 @@ Object.assign(NOTES, {
   recap: ["Weekly recap", ["Sunday recap. No streaks or rankings, only what went well."]],
   notifications: ["Notifications", ["Needs you: handoff requests and your urgent tasks. Each has a button. Stone alerts live in the home kit.", "Updates: things others finished and thank-yous. A badge on each picture shows the kind."]],
   recapSettings: ["Thank-yous and recaps", ["Turn each one off, or go quiet for a while."]],
+  wrong: ["Something's wrong", ["Built to the hospice nurse's brief from our research: “think of them in a moment of panic”. Always one tap away, from the pill at the top of Home and from the Pebble tab.", "One screen, in order: call hospice first, not 911 (with why, in terms of the loved one's wishes), then the nurse and the main doctor, where supplies and medicine come from, someone to talk to (the social worker, 988, grief support), and a spot for faith or cultural contacts the family adds.", "Reuses the numbers and the grief sheet from Help and resources. No Pebble on this screen, on purpose. The Talk it through emergency path opens this same screen."]],
   resources: ["Help and resources", ["People to call first, then support (grief, money), each with a few gentle lines and links to trusted outside sources: 988, CaringInfo, Medicare, the FTC, USA.gov.", "End-of-life topics (what to do when someone dies, funeral planning) stay folded behind a gentle note until someone chooses to open them, with an offer to talk it through with the social worker instead.", "\"Call hospice first, not 911\" is explained in terms of the loved one's wishes, not as a rule."]],
 });
 
-const APP_NAV = ["ready", "home", "myjar", "task", "newTask", "peopleTab", "person", "pebble", "settings", "resources", "kit", "stones", "done", "clear", "recap", "notifications"];
+const APP_NAV = ["ready", "home", "myjar", "task", "newTask", "peopleTab", "person", "pebble", "settings", "resources", "wrong", "kit", "stones", "done", "clear", "recap", "notifications"];
 
 function renderAppNotes() {
   const [title, bullets] = NOTES[S.screen] || ["", []];
@@ -1241,7 +1300,7 @@ function appEnter(screen) {
   if (screen === "paired") { const t = firstTask(); if (t && !stoneOf(t)) pairStone(t.id); }
   if (screen === "find") S.app.blink = null;
   if (screen === "notifications") S.app.seenNotes = true;
-  if (screen === "handoff") { S.app.handTo = undefined; S.app.note = ""; S.app.handStep = null; S.app.notePebble = false; }
+  if (screen === "handoff") { S.app.handTo = undefined; S.app.note = ""; S.app.handStep = null; S.app.notePebble = false; S.app.follow = null; }
 }
 
 function tabTo(screen) {
@@ -1365,6 +1424,8 @@ Object.assign(ACTIONS, {
   editTaskDate: () => { S._cal = null; dateSheet(curTask()); },
   toggleStep: (d) => { const x = curTask().steps[+d.id]; x.done = !x.done; if (x.done && !x.who) x.who = "you"; render(); },
   takeStep: (d) => { curTask().steps[+d.id].who = "you"; render(); toast("That step is yours"); },
+  // Hand off one step, not the whole task.
+  askStep: (d) => { go("handoff"); S.app.handStep = +d.id; render(); },
   giveStone: (d) => { closeSheet(); S.app.stoneFor = d.id; go("newStone"); },
   handoff: () => { closeSheet(); go("handoff"); },
   // Pick several people, everyone who can take it, or no one (unassigned).
@@ -1397,6 +1458,8 @@ Object.assign(ACTIONS, {
     render();
     const stay = t.who === "you" ? "with you" : `with ${nameOf(t.who)}`;
     toast(many ? `Asked ${t.handoff.all ? "everyone" : namesList(to)}. It stays ${stay} until someone says yes.` : `Asked ${nameOf(to[0])}. It stays ${stay} until they say yes.`);
+    // With Pebble's follow-up on, the prototype plays the no-answer path instead: Pebble asks the next person, as agreed.
+    if (typeof pebbleFollowArm === "function" && pebbleFollowArm(t, to)) return;
     // The prototype answers for them. One person: yes first, then no, so both paths can be shown.
     // Several people: someone always says yes, and the rest are told it's covered.
     const yes = many || (S.app.handReplies = (S.app.handReplies || 0) + 1) % 2 === 1;
@@ -1423,6 +1486,22 @@ Object.assign(ACTIONS, {
       <div class="actions">${r.gentle ? `<button class="btn-soft" data-act="toast" data-msg="Calling Rosa at (408) 555-0167">Talk to Rosa</button>` : ""}<button class="btn-soft" data-act="closeSheet">Done</button></div>`);
   },
   resToggle: () => { S.app.resOpen = !S.app.resOpen; render(); },
+  wrongAddSheet: (d) => {
+    S.app.wrongDraft = { kind: d.id, n: "", how: "" };
+    const provider = d.id === "provider";
+    openSheet(`<h3>${provider ? `${esc(possessive({ name: L() }))} main doctor` : "Someone to call"}</h3><p class="small">${provider ? "Their name and the number the family should call." : "Who they are to the family, and how to reach them."}</p>
+      <label class="card field"><span class="eyebrow">${provider ? "Doctor" : "Name"}</span><input data-input="wrongName" placeholder="${provider ? "Dr. Alvarez" : "Pastor Jim"}" aria-label="Name" autocomplete="off"></label>
+      <label class="card field"><span class="eyebrow">${provider ? "Number" : "Number or how to reach them"}</span><input data-input="wrongHow" placeholder="(555) 555-0123" aria-label="How to reach them" autocomplete="off"></label>
+      <button class="btn-primary" data-act="wrongAdd">Add</button>`);
+  },
+  wrongAdd: () => {
+    const d = S.app.wrongDraft;
+    if (!d.n.trim()) { toast("Add a name first"); return; }
+    if (d.kind === "provider") wrong().provider = { n: d.n.trim(), how: d.how.trim() || "number to add" };
+    else wrong().faith.push({ n: d.n.trim(), how: d.how.trim() || "number to add" });
+    closeSheet(); render(); toast("Added. Everyone in the family sees it here.");
+  },
+  wrongDrop: (d) => { wrong().faith.splice(+d.id, 1); render(); },
   cancelHandoff: () => { curTask().handoff = null; render(); toast("Request canceled"); },
   newTask: () => {
     ensureAppData();
@@ -1502,7 +1581,7 @@ Object.assign(ACTIONS, {
   checkinTell: () => { S.app.toldFamily = true; toast("Sent. The family will see you could use a hand this week."); },
   pebbleSees: () => openSheet(`<h3>What Pebble can see</h3>
     <p class="small">Pebble uses everyone's answers from setup, ${esc(L())}'s goals, task names and dates, and what you tell it when you tap Ask Pebble. It never reads messages, medical records, or calendar event details. Only busy and free. Tap an underlined word in a note and it explains that word only.</p>
-    <p class="small"><b>You say yes first.</b> Pebble drafts and suggests. Nothing changes until someone says yes, and Pebble never sends a message or calls anyone itself. Settings › What Pebble did lists every change.</p>
+    <p class="small"><b>You say yes first.</b> Pebble drafts and suggests. Nothing changes until someone says yes, and Pebble never sends a message or calls anyone itself. What Pebble did, in the Pebble tab, lists every change.</p>
     <p class="small"><b>No clinical role.</b> Pebble doesn't give medical advice, read symptoms, or touch medications. It only helps the family share the work.</p>
     <div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">Turn off to set everything up by hand</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
     <button class="btn-primary" data-act="closeSheet">Got it</button>`),
@@ -1562,13 +1641,15 @@ const APP_INPUT = {
     if (!t.sizeSet && pebbleOn()) {
       t.w = t.pw = v.trim() ? guessSize(v) : 2;
       const lab = document.querySelector("[data-size-label]");
-      if (lab) { lab.textContent = WEIGHT_LABEL[t.w]; lab.previousElementSibling.querySelector("em").textContent = v.trim() ? "Pebble's guess" : ""; }
+      if (lab) { lab.textContent = WEIGHT_LABEL[t.w]; const em = lab.closest(".field-row")?.querySelector("em"); if (em) em.textContent = v.trim() ? "Pebble's guess" : ""; }
     }
     const btn = document.querySelector(".footer .btn-primary");
     if (btn) btn.disabled = !v.trim();
   },
   draftNote: (v) => { draft().notes = v; },
   handoffNote: (v) => { S.app.note = v; },
+  wrongName: (v) => { S.app.wrongDraft.n = v; },
+  wrongHow: (v) => { S.app.wrongDraft.how = v; },
   thanksNote: (v) => { S.app.thanksNote = v; },
 };
 

@@ -31,6 +31,7 @@ function homeNew() {
   return `<div class="home2">
   <div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
+      <button class="sos" data-act="go" data-to="wrong">Something's wrong</button>
       <button class="k-look" data-act="homeLook">Old look</button>
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     ${notifStack(urgent, finished)}
@@ -63,6 +64,8 @@ function notifStack(urgent, finished) {
   const u = urgent[0];
   if (u && !S.app.dismissed[`u${u.id}`]) items.push({ key: `u${u.id}`, act: "openTask", id: u.id, cls: "urgent", style: `--u:${urgentHex()}`,
     icon: gemOf(u, { size: "s" }), title: `${u.n}`, body: `${cap(dueLabel(u))} · ${nameOf(u.who)}${urgent.length > 1 ? ` · +${urgent.length - 1} urgent` : ""}`, cta: "View" });
+  // Pebble's notice is a banner like the others (pearl, so it reads as a suggestion), with its two answers right there.
+  if (typeof pebbleBanners === "function") items.push(...pebbleBanners());
   if (finished) items.push({ key: finished.id, act: "sayThanks", id: finished.id, cls: "done",
     icon: avatar(person(finished.who), "s28"), title: `${person(finished.who).name.split(" ")[0]} finished ${finished.n}`, body: finished.doneAt || "Today", cta: "Thank" });
   if (!items.length) return "";
@@ -74,7 +77,8 @@ function notifStack(urgent, finished) {
       <button class="h-ios-main" data-act="${n.act}" data-id="${n.id}" ${!open && i ? 'tabindex="-1" aria-hidden="true"' : ""}>
         <span class="h-ios-thumb">${n.icon}</span>
         <span class="h-ios-txt"><span class="n">${esc(n.title)}</span><span class="m">${esc(n.body)}</span></span>
-        <span class="h-ios-cta">${n.cta}</span></button>
+        ${n.alt ? "" : `<span class="h-ios-cta">${n.cta}</span>`}</button>
+      ${n.alt ? `<div class="h-ios-acts"><button class="h-ios-cta" data-act="${n.act}" data-id="${n.id}">${esc(n.cta)}</button><button class="h-ios-cta soft" data-act="${n.alt[1]}" data-id="${n.id}">${n.alt[0]}</button></div>` : ""}
       <button class="h-ios-x" data-act="clearNote" data-key="${n.key}" aria-label="Clear"><span aria-hidden="true">×</span></button></div>`).join("")}
     ${open && items.length > 1 ? `<button class="h-stack-less" data-act="stackOpen">Show less</button>` : ""}
   </div>`;
@@ -83,7 +87,8 @@ function notifStack(urgent, finished) {
 // Clearing slides the banner off to the side, then the space closes up.
 function clearNote(key, el) {
   const card = el || document.querySelector(`.h-ios[data-key="${key}"]`);
-  const done = () => { S.app.dismissed[key] = true; render(); };
+  // Pebble's banner clears the Pebble way: "Not now" means not now.
+  const done = () => { if (key.startsWith("peb:")) PB().dismissed[key.slice(4)] = true; else S.app.dismissed[key] = true; render(); };
   if (!card) return done();
   card.classList.add("gone");
   setTimeout(done, 280);
@@ -136,4 +141,7 @@ Object.assign(ACTIONS, {
 NOTES.home = ["Home", ["An overview, like a phone's home screen: a bright ombre, the family jars, and widgets that each open the screen with the detail.",
   "Urgent and finished-task alerts are iOS-style notifications at the very top. They drop in once, stack when there are two (tap to fan them out), and clear with a swipe left or the × on hover. Once cleared, they live in the bell. Tap a jar to see that person.", "Widgets: your jar (how many left, ring is how much is done), the home kit (charging, and any stone off power), and this week (tap a day).",
   "The home kit widget is night blue like the kit screen, so you know where it goes. Without a kit, that spot shows who's helping.",
-  "The pill at the top right switches to the old look to compare."]];
+  "The pill at the top right switches to the old look to compare.",
+  "Pebble: when Pebble notices something (an urgent step no one has, a task with no one, a hand-off that was declined), it's a banner in this same stack, on the pearl surface so it reads as a suggestion. Two answers, one tap each: Ask [name] opens Hand off with that person picked and the note written, so what's left is Send; Not now means not now. Swiping it away is Not now too. Pebble asks no one itself.",
+  "“Something's wrong”, top left, is always one tap away: who to call, in order, for a moment of panic. It's there with Pebble on or off, and on quiet days.",
+  "Pebble: after Ana sends a visit note, a banner says how many things in it could become tasks (“Ana's visit note has 2 things to add”). Review opens them; nothing opens or is added on its own."]];

@@ -10,9 +10,10 @@
 .peb-fig.xl { width: 150px !important; margin: 0 auto; filter: drop-shadow(0 12px 16px rgba(90, 60, 40, 0.18)); }
 
 /* Home header */
-.ask-peb { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 6px; margin-right: 4px; border-radius: 17px; background: rgba(255, 255, 255, 0.85); border: 1px solid #fff; box-shadow: var(--chip-shadow); font-size: 13px; font-weight: 600; color: var(--navy); }
-.ask-peb img { width: 24px; height: 24px; object-fit: contain; }
 .head-btns { display: inline-flex; align-items: center; }
+
+/* Questions for the nurse, on the nurse-visit task */
+.nurse-qs .nq-foot { margin: 4px 0 10px; }
 
 /* Pebble noticed */
 .peb-notice { padding: 14px 16px 16px; margin: 12px 0; }
@@ -67,6 +68,8 @@
 .peb-prog .n { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
 .peb-prog .small { margin: 0; }
 .pp-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.peb-prog .pp-step { margin: 8px 0 0; color: var(--ink); }
+.stp .stp-detail { white-space: normal; margin-top: 2px; line-height: 16px; }
 
 /* My jar check-in hint */
 .peb-hint { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 10px 0 4px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.7); text-align: left; }
@@ -82,6 +85,27 @@
 .empty-card .small { text-align: center; }
 .peb-hint .linkish { flex-basis: 100%; text-align: left; padding-left: 36px; }
 
+/* Pebble's notice as a Home banner: the same glass banner as the others, on the pearl surface, with its two answers. */
+.h-ios.pebble { background: linear-gradient(155deg, rgba(251, 245, 240, 0.9) 0%, rgba(240, 233, 250, 0.9) 52%, rgba(231, 241, 245, 0.9) 100%); }
+.h-ios.pebble::before { background: linear-gradient(135deg, #c9b4ee 0%, #f1c9ae 34%, #b3d8e8 66%, #d6bdee 100%); opacity: 0.85; }
+.h-ios.pebble .h-ios-thumb { background: rgba(255, 255, 255, 0.75); }
+.h-ios.pebble .m { white-space: normal; color: #5e5478; }
+.h-ios.pebble .n { color: #3a2f5c; white-space: normal; }
+.h-ios-acts { display: flex; gap: 8px; padding: 0 10px 10px 62px; }
+.h-ios-acts .h-ios-cta { height: 30px; padding: 0 14px; display: inline-flex; align-items: center; background: var(--blue); color: #fff; box-shadow: none; }
+.h-ios-acts .h-ios-cta.soft { background: rgba(255, 255, 255, 0.7); color: var(--navy); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9); }
+
+/* The notice in the Notifications list: the row is one answer, "Not now" the other. */
+.notif-pair { display: flex; flex-direction: column; align-items: stretch; }
+.notif-pair .nf-alt { align-self: flex-end; }
+.notif.pebble.needs { border: 1.5px solid transparent; background: linear-gradient(155deg, #fbf5f0, #f0e9fa 52%, #e7f1f5) padding-box, linear-gradient(135deg, #c9b4ee, #f1c9ae 34%, #b3d8e8 66%, #d6bdee) border-box; }
+.nb-pebble { background: #6a5a8c; }
+.nf-alt { padding: 6px 14px 2px; }
+
+/* At home, the stone for a task Pebble has a notice about pulses gently, the kit's own slow glow. */
+.glassbox .gem.peb-pulse, .glassbox .gem.still.peb-pulse { animation: blink 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .glassbox .gem.peb-pulse, .glassbox .gem.still.peb-pulse { animation: none; } }
+
 /* Pebble's tab */
 .peb-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 0 22px; }
 .peb-hero .title { margin-top: 12px; }
@@ -93,7 +117,10 @@
 .peb-tile .peb-fig { margin-bottom: auto; }
 .peb-tile .k-lab { margin-top: 12px; }
 .peb-tile .k-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.peb-sees { flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 16px; }
+.peb-sees { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 12px; }
+.peb-sees .tl-txt { flex: 1; }
+.peb-sees .k-note { margin-top: 2px; }
+.peb-wrong .k-lab { color: var(--alert); }
 
 /* Pearl: anything Pebble is suggesting or drafting, before you say yes. A near-white fill with a shell-like
    edge, so it reads apart from the plain white cards. The Pebble figure always rides along, so color isn't the only cue. */
@@ -122,3 +149,32 @@
 .hand-note { display: flex; align-items: center; gap: 8px; }
 .hand-note .peb-chip { margin-left: auto; }
 .peb-chip.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+/* Split into steps, on Add a task */
+.peb-split { margin: 0 4px 16px; }
+.peb-split .small { flex-basis: 100%; }
+.peb-steps { margin: 0 0 16px; }
+.peb-steps .peb-term-head { margin-bottom: 4px; }
+.peb-steps .peb-term-head .eyebrow { margin-bottom: 2px; }
+.peb-steps .num { flex: none; width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center; background: var(--blue-tint); color: var(--blue); font-size: 12px; font-weight: 700; }
+.peb-steps .x-btn { margin-left: auto; }
+.peb-steps .actions { margin: 8px 0 12px; display: flex; gap: 8px; }
+.peb-steps .actions .btn-soft { flex: 1; justify-content: center; }
+.stp-acts { display: inline-flex; gap: 12px; }
+
+/* Catch-up note for a new helper: a pearl row in People, on the person, and on Hand off. */
+.peb-catchup { margin: 0 0 12px; }
+.peb-catchup .linkish { flex-basis: auto; padding-left: 0; }
+.peb-catchup-text { min-height: 150px; }
+
+/* The optional follow-up line under the note. */
+.peb-follow { flex-wrap: nowrap; margin: 10px 0 4px; }
+.peb-follow .small { line-height: 19px; }
+.peb-follow .linkish { font-size: inherit; }
+.peb-follow .switch { flex: none; margin-left: auto; }
+
+/* When the time comes: a quiet last row on the Pebble tab, not a card that asks for attention. */
+.peb-after-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; margin: 4px 0 12px; text-align: left; border-radius: 20px; background: rgba(255, 255, 255, 0.45); border: 1px dashed var(--dash, rgba(90, 100, 120, 0.35)); color: var(--ink); }
+.peb-after-row .n { font-weight: 600; font-size: 14.5px; }
+.peb-after-row .m { white-space: normal; }
+.peb-after-row .tl-txt { flex: 1; }
+.peb-hero .btn-soft { height: 44px; padding: 0 22px; }
