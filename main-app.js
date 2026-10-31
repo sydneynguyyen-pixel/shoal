@@ -502,7 +502,6 @@ SCREENS.home = () => {
   const today = active().filter((t) => occurs(t, day)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   return `<div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
-      ${pebbleAskBtn()}
       ${hasKit() ? `<button class="bell" data-act="go" data-to="kit" aria-label="Home kit">${icon("kit")}${notCharging().length && (!S.setup || S.setup.stones) ? `<i class="dot warn"></i>` : ""}</button>` : ""}
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
@@ -636,6 +635,7 @@ SCREENS.task = () => {
       </div>`).join("")}
     </div>` : ""}
     ${t.notes ? `<div class="card notes-card"><p class="eyebrow grey">Notes</p><p>${pebbleTerms(t.notes)}</p><span class="small">Added by you${pebbleOn() && HAS_TERM.test(t.notes) ? " · tap an underlined word to explain it" : ""}</span></div>` : ""}
+    ${typeof nurseQsCard === "function" ? nurseQsCard(t) : ""}
     ${pebbleTaskHelp(t)}
   </div>
   ${t.done ? solo("Mark not done", "undoDone", null, `data-id="${t.id}"`) : duo(["Hand off", "handoff"], ["Mark done", "markDone", `data-id="${t.id}"`])}`;
@@ -825,9 +825,9 @@ SCREENS.settings = () => {
     <p class="section-h">Other views</p>
     <div class="card tlist">${row("See Shoal as someone else", "Nurse, trusted circle, kids, volunteers", "roleSheet")}${row("Take the tour again", "A quick look at each page", "tourStart")}</div>
     <p class="section-h">Pebble</p>
-    <div class="card tlist"><div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">${pebbleOn() ? "Suggests tasks and a fair split, notices what's slipping, drafts asks" : "Off · you set things up by hand"}</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
+    <div class="card tlist"><div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">${pebbleOn() ? "Suggests tasks and a fair split, notices what's slipping, writes the note when you ask for help" : "Off · you set things up by hand"}</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
       ${row("What Pebble can see", "Answers, goals and what you tell it. No medical advice.", "pebbleSees")}
-      ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything` : "Nothing yet · every change shows here", "pebbleLogOpen") : ""}</div>
+      ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything, in the Pebble tab` : "Nothing yet · it lives in the Pebble tab", "pebbleLogOpen") : ""}</div>
     <p class="section-h">Account</p>
     <div class="card tlist">${row("Sign out", "Back to the sign-in screen", "signOutSheet")}</div>
     <button class="btn-text center" data-act="restart">Restart prototype</button>
@@ -1502,7 +1502,7 @@ Object.assign(ACTIONS, {
   checkinTell: () => { S.app.toldFamily = true; toast("Sent. The family will see you could use a hand this week."); },
   pebbleSees: () => openSheet(`<h3>What Pebble can see</h3>
     <p class="small">Pebble uses everyone's answers from setup, ${esc(L())}'s goals, task names and dates, and what you tell it when you tap Ask Pebble. It never reads messages, medical records, or calendar event details. Only busy and free. Tap an underlined word in a note and it explains that word only.</p>
-    <p class="small"><b>You say yes first.</b> Pebble drafts and suggests. Nothing changes until someone says yes, and Pebble never sends a message or calls anyone itself. Settings › What Pebble did lists every change.</p>
+    <p class="small"><b>You say yes first.</b> Pebble drafts and suggests. Nothing changes until someone says yes, and Pebble never sends a message or calls anyone itself. What Pebble did, in the Pebble tab, lists every change.</p>
     <p class="small"><b>No clinical role.</b> Pebble doesn't give medical advice, read symptoms, or touch medications. It only helps the family share the work.</p>
     <div class="srow"><span class="tl-txt"><span class="n">Pebble suggestions</span><span class="m">Turn off to set everything up by hand</span></span>${toggle(pebbleOn(), "pebbleToggle", "", "Pebble suggestions")}</div>
     <button class="btn-primary" data-act="closeSheet">Got it</button>`),

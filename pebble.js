@@ -31,6 +31,19 @@ function PB() {
   return S.app.pebble;
 }
 const nowLabel = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+// Questions for the hospice nurse, saved by the family. Plain data on the plan, so they stay even with Pebble off.
+const nurseQs = () => (S.app.nurseQs ??= []);
+const isNurseVisit = (t) => /nurse visit/i.test(t.n);
+// On the next nurse-visit task: what the family wants to ask Ana. Tick one off once it's asked.
+function nurseQsCard(t) {
+  const qs = nurseQs();
+  if (!isNurseVisit(t) || !qs.length) return "";
+  const asked = qs.filter((q) => q.asked).length;
+  return `<div class="card stepsc nurse-qs"><div class="meter-top"><b>Questions for Ana</b><span class="small">${asked} of ${qs.length} asked</span></div>
+    ${qs.map((q) => `<div class="stp"><button data-act="nurseQAsked" data-id="${q.id}" aria-label="${q.asked ? "Not asked yet" : "Mark asked"}">${check(q.asked, true)}</button>
+      <span class="tl-txt"><span class="n">${esc(q.q)}</span><span class="m">${q.asked ? "Asked" : `Saved ${esc(q.when)}`}</span></span></div>`).join("")}
+    <p class="small nq-foot">Saved from a plain-words term. Pebble only wrote the question down; Ana answers it.</p></div>`;
+}
 // Every change Pebble makes is logged with how to undo it.
 function pebLog(what, how, undo = null) { PB().log.unshift({ id: `l${Date.now()}${Math.random().toString(36).slice(2, 5)}`, when: `Today, ${nowLabel()}`, what, how, undo }); }
 
@@ -245,7 +258,7 @@ SCREENS.pebbleTalk = () => {
     <div class="peb-stage">${pebFig("confirmed", "xl")}</div>
     <h1 class="title center">Done. Here's where they went.</h1>
     <div class="card tlist peb-done">${T.done.map((x) => `<div class="srow">${gem(x.st, { size: "s" })}<span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${esc(x.m)}</span></span></div>`).join("")}</div>
-    <p class="small center">Undo anything from Settings › What Pebble did.</p>
+    <p class="small center">Undo anything from What Pebble did, in the Pebble tab.</p>
   </div>
   ${S.app.pebNew && hasKit() ? duo(["Later", "pebbleClose"], ["Pair a stone now", "pebblePair"]) : solo("Done", "pebbleClose")}`;
 
@@ -317,14 +330,14 @@ SCREENS.pebbleCosts = () => {
 
 SCREENS.pebbleLog = () => {
   const log = PB().log;
-  return `${navtop("Settings")}
+  return `${navtop("Back")}
   <div class="content">
     <h1 class="title">What Pebble did</h1>
     <p class="sub">Everything Pebble suggested that you said yes to. Undo anything here.</p>
     ${log.length ? `<div class="card tlist">${log.map((x) => `<div class="srow peb-log"><span class="tl-txt"><span class="m">${esc(x.when)}</span><span class="n">${esc(x.what)}</span><span class="m">${esc(x.how)}</span></span>
       ${x.undo && !x.undone ? `<button class="linkish" data-act="pebbleUndo" data-id="${x.id}">Undo</button>` : x.undone ? `<span class="small">Undone</span>` : ""}</div>`).join("")}</div>
       <button class="btn-text center" data-act="pebbleClearLog">Clear this list</button>`
-    : `<div class="card empty-card">${pebFig("idle", "s56")}<p class="small">Nothing yet. When Pebble adds a task, a step, or drafts an ask and you say yes, it shows up here.</p></div>`}
+    : `<div class="card empty-card">${pebFig("idle", "s56")}<p class="small">Nothing yet. When Pebble adds a task or a step, or writes a note you send, it shows up here.</p></div>`}
   </div>`;
 };
 
@@ -385,25 +398,22 @@ function pebbleMonthEntry() {
   return `<button class="card peb-month" data-act="go" data-to="pebbleMonth">${pebFig("organizing", "s44")}<span class="tl-txt"><span class="n">Monthly check-in</span><span class="m">Pebble has a few things for when you're all together</span></span>${chev}</button>`;
 }
 
-/* ---------- Home header ---------- */
-
-const pebbleAskBtn = () => (pebbleOn() ? `<button class="ask-peb" data-act="pebbleAsk"><img src="${A("pebble/pebble_base_front.png")}" alt="">Ask Pebble</button>` : "");
-
 /* ---------- Notes ---------- */
 
 Object.assign(NOTES, {
-  pebbleTalk: ["Pebble: talk it through", ["Opened from “Ask Pebble” in the Home header. Talk or type; the samples show each path.", "Pebble turns it into draft changes: a new task, a step on a task you already have, or asking the circle to cover something. It spots tasks you already have, so nothing doubles up.", "Medicine and symptoms are left out, and Pebble says so. Emergency words stop everything and point to hospice.", "Nothing changes until “Yes, add these.” Every change can be undone in What Pebble did."]],
+  pebbleTalk: ["Pebble: talk it through", ["Opened from Talk it through on the Pebble tab. Talk or type; the samples show each path.", "Pebble turns it into draft changes: a new task, a step on a task you already have, or asking the circle to cover something. It spots tasks you already have, so nothing doubles up.", "Medicine and symptoms are left out, and Pebble says so. Emergency words stop everything and point to hospice.", "Nothing changes until “Yes, add these.” Every change can be undone in What Pebble did."]],
   pebbleCosts: ["Pebble: help with costs", ["From a money or paperwork task.", "Programs that may fit, each with its source. “Make a task” adds a follow-up to your jar.", "Pebble finds and explains. Only the program decides who qualifies."]],
   pebbleMonth: ["Pebble: monthly check-in", ["From People, for the monthly reset everyone does together.", "Patterns only: who's carrying more than the room they set, what has no one, what slipped.", "Rings show room, never why. The one suggested move only happens when the family says yes."]],
-  pebbleLog: ["What Pebble did", ["From Settings › Pebble.", "A record of every change Pebble proposed and you said yes to, with Undo."]],
+  pebbleLog: ["What Pebble did", ["Lives in one place: the Pebble tab (What I did). The Settings › Pebble row just links here.", "A record of every change Pebble proposed and you said yes to, with Undo."]],
 });
 
 // Pebble's bits on existing screens, noted where they show up.
-NOTES.home[1].push("Pebble: “Ask Pebble” in the header opens a talk-it-through screen. A “Pebble noticed” card shows one thing at a time, like an urgent step no one has, with Find someone or Not now. Find someone opens Hand off with Pebble's pick.");
-NOTES.task[1].push("Pebble: asking for help is always Hand off, where Pebble suggests who has room and can write the note. Money tasks also get Find help paying. Underlined words in the notes open a plain-words explanation with its source.");
+NOTES.home[1].push("Pebble: a “Pebble noticed” card shows one thing at a time, like an urgent step no one has, with Find someone or Not now. Find someone opens Hand off with Pebble's pick. Talking to Pebble lives in its tab.");
+NOTES.task[1].push("Pebble: asking for help is always Hand off, where Pebble suggests who has room and can write the note. Money tasks also get Find help paying. Underlined words in the notes open a plain-words explanation with its source; on a medicine word, “Ask the nurse” saves the question for Ana's next visit.", "On the nurse-visit task, “Questions for Ana” lists what the family saved. Tick one off once it's asked.");
 NOTES.myjar[1].push("Pebble: answering “Stretched thin” gets one suggestion of a task someone with room could take. Only you see it.");
-NOTES.peopleTab[1].push("Pebble: the monthly check-in card opens what Pebble noticed this month, for the whole family to look at together.");
-NOTES.settings[1].push("Pebble: “What Pebble did” lists every change Pebble made after someone said yes, with Undo.");
+NOTES.peopleTab[1].push("Pebble: the monthly check-in lives here, and only here. It opens what Pebble noticed this month, for the whole family to look at together.");
+NOTES.settings[1].push("Pebble: the What Pebble did row opens the list in the Pebble tab, where every change Pebble made after someone said yes can be undone.");
+NOTES.asNurse[1].push("Pebble: questions the family saved from plain-words terms (“Ask the nurse”) show up here as Questions from the family, so Ana sees them before the visit.");
 
 Object.assign(APP_INPUT, {
   pebbleSay: (v) => {
@@ -466,7 +476,15 @@ Object.assign(ACTIONS, {
       ${med ? `<div class="card info peb-caution"><span class="small">I can explain words. <b>When and how much</b> is a question for ${esc(L())}'s hospice nurse.</span></div>` : ""}
       <div class="actions">${med ? `<button class="btn-soft" data-act="pebbleAskNurse" data-id="${d.id}">Ask the nurse</button>` : ""}<button class="btn-soft" data-act="closeSheet">Got it</button></div>`);
   },
-  pebbleAskNurse: (d) => { closeSheet(); toast(`Saved a question about ${PEB_TERMS[d.id][0]} for the nurse's next visit`); },
+  // The question is saved to the family's plan, not sent anywhere. It shows on the next nurse-visit task and in Ana's view.
+  pebbleAskNurse: (d) => {
+    const term = PEB_TERMS[d.id][0];
+    const q = { id: `q${Date.now()}`, term, q: `${term}: when, and how much?`, asked: false, when: `Today, ${nowLabel()}` };
+    nurseQs().push(q);
+    pebLog(`Saved a question about ${term} for Ana's next visit`, "From a plain-words term · you said yes", { type: "nurseQ", id: q.id });
+    closeSheet(); render(); toast(`Saved for Ana's next visit`);
+  },
+  nurseQAsked: (d) => { const q = nurseQs().find((x) => x.id === d.id); if (q) q.asked = !q.asked; render(); },
 
   pebbleCostsFor: () => go("pebbleCosts"),
   pebbleCostTask: (d) => {
@@ -505,6 +523,7 @@ Object.assign(ACTIONS, {
     if (u.type === "task") S.tasks = S.tasks.filter((y) => y.id !== u.id);
     if (u.type === "step" && t) { const i = t.steps.findIndex((s) => s.n === u.n); if (i >= 0) t.steps.splice(i, 1); }
     if (u.type === "who" && t) t.who = u.who;
+    if (u.type === "nurseQ") S.app.nurseQs = nurseQs().filter((q) => q.id !== u.id);
     x.undone = true; render(); toast("Undone");
   },
   pebbleClearLog: () => { PB().log = []; render(); },
@@ -514,7 +533,7 @@ Object.assign(ACTIONS, {
 
 // Everything Pebble does, in one place. The tab shows only while Pebble is on in Settings.
 SCREENS.pebble = () => {
-  const open = active().find((t) => !t.who && !t.done), n = PB().log.length;
+  const n = PB().log.length;
   const tile = (act, to, fig, lab, note) => `<button class="h-w peb-tile" data-act="${act}" ${to ? `data-to="${to}"` : ""}>${pebFig(fig, "s44")}<span class="k-lab">${lab}</span><span class="k-note">${note}</span></button>`;
   return `<div class="content app peb-page">
     <div class="peb-hero">${pebFig("idle", "xl")}
@@ -523,18 +542,12 @@ SCREENS.pebble = () => {
       <button class="btn-primary" data-act="pebbleAsk">Talk it through</button></div>
     ${pebbleHomeCard()}
     <div class="k-grid">
-      ${tile("pebbleDraftOpen", "", "awaiting_confirmation", "Find someone", open ? esc(open.n) : "Nothing open")}
       ${tile("go", "pebbleCosts", "researching", "Help with costs", `${PEB_PROGRAMS.length} programs`)}
-      ${tile("go", "pebbleMonth", "organizing", "Monthly check-in", "For when you're together")}
       ${tile("pebbleLogOpen", "", "confirmed", "What I did", n ? `${n} change${n === 1 ? "" : "s"} · undo any` : "Nothing yet")}
     </div>
     <button class="h-w wide peb-sees" data-act="pebbleSees"><span class="k-lab">What Pebble can see</span><span class="k-go" aria-hidden="true">${chev}</span></button>
   </div>
   ${tabbar()}`;
 };
-ACTIONS.pebbleDraftOpen = () => {
-  const t = active().find((x) => !x.who && !x.done);
-  if (t) pebbleHandoff(t.id); else toast("Every task has someone. Nothing to ask for.");
-};
-NOTES.pebble = ["Pebble", ["Pebble's own tab. It's in the tab bar only while Pebble is on (Settings › Pebble); turn it off and the tab goes away.", "Talk it through turns what's going on into draft tasks. The tiles open the other things Pebble does: draft an ask, help with costs, the monthly check-in, and everything it changed, with Undo.", "Pebble never sees Dad's care page and never gives medical advice."]];
+NOTES.pebble = ["Pebble", ["Pebble's own tab. It's in the tab bar only while Pebble is on (Settings › Pebble); turn it off and the tab goes away.", "Talk it through turns what's going on into draft tasks. Below it: anything Pebble noticed, help with costs, and What I did, the one place every change Pebble made can be undone.", "Asking for help starts from a task or from a notice, never from a random open task, so there's no Find someone tile. The monthly check-in lives in People only.", "Pebble never sees Dad's care page and never gives medical advice."]];
 

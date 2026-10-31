@@ -112,6 +112,9 @@ SCREENS.asNurse = () => {
     <p class="section-h">Notes from the family</p>
     <div class="card tlist">${notes.map(([who, n]) => `<div class="tline"><div class="tl-main">${avatar(S.people.find((p) => p.name === who) || { name: who }, "s36")}
       <span class="tl-txt"><span class="m">${esc(who)}</span><span class="n wrap">${esc(n)}</span></span></div></div>`).join("")}</div>
+    ${typeof nurseQs === "function" && nurseQs().length ? `<p class="section-h">Questions from the family</p>
+    <div class="card tlist">${nurseQs().map((q) => `<div class="tline ${q.asked ? "is-done" : ""}"><div class="tl-main">${gem(q.asked ? "done" : "open", { size: "s" })}
+      <span class="tl-txt"><span class="n wrap">${esc(q.q)}</span><span class="m">${q.asked ? "Answered at the visit" : "For your next visit"}</span></span></div></div>`).join("")}</div>` : ""}
     <p class="section-h">You asked the family for<button class="linkish" data-act="askSheet">Ask for something</button></p>
     ${R.asks.length ? `<div class="card tlist">${R.asks.map((a) => { const t = task(a.task); return `<div class="tline"><div class="tl-main">${gemOf(t)}
       <span class="tl-txt"><span class="n">${esc(a.n)}</span><span class="m">${t.done ? "Done" : t.who ? `${nameOf(t.who)} has it` : "Waiting for someone to take it"}</span></span></div></div>`; }).join("")}</div>`
@@ -236,7 +239,7 @@ SCREENS.volunteerCode = () => {
 
 Object.assign(NOTES, {
   volunteerCode: ["Volunteer code", ["Renamed from “Public code”: testers didn't know what that meant.", "Explains who it's for, how it works, and what volunteers can and can't see. The family picks which tasks to share."]],
-  asNurse: ["View: nurse or doula", ["Ana, the hospice nurse, sees visits and the notes the family shares with her.", "Checking in after a visit sends a note to the family. Asking for something adds an open task to the family's plan."]],
+  asNurse: ["View: nurse or doula", ["Ana, the hospice nurse, sees visits and the notes the family shares with her.", "Checking in after a visit sends a note to the family. Asking for something adds an open task to the family's plan.", "Questions from the family: what they saved to ask her, so nothing is forgotten at the visit."]],
   asTrusted: ["View: trusted circle", ["Nora gets a text link, not the app. She sees her own tasks and light ones she can pick up.", "Taking one puts it in her name for the whole family."]],
   asKid: ["View: kid or teen", ["Leo sees kid-friendly jobs only, in plain words, with a count of how much he's helped.", "No medical details or due-date pressure."]],
   asPublic: ["View: volunteer code", ["Anyone with the family's code can help with remote tasks. They never see names or the address.", "The code only works while the family has it on in People."]],

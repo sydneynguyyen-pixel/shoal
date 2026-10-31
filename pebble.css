@@ -10,9 +10,10 @@
 .peb-fig.xl { width: 150px !important; margin: 0 auto; filter: drop-shadow(0 12px 16px rgba(90, 60, 40, 0.18)); }
 
 /* Home header */
-.ask-peb { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 6px; margin-right: 4px; border-radius: 17px; background: rgba(255, 255, 255, 0.85); border: 1px solid #fff; box-shadow: var(--chip-shadow); font-size: 13px; font-weight: 600; color: var(--navy); }
-.ask-peb img { width: 24px; height: 24px; object-fit: contain; }
 .head-btns { display: inline-flex; align-items: center; }
+
+/* Questions for the nurse, on the nurse-visit task */
+.nurse-qs .nq-foot { margin: 4px 0 10px; }
 
 /* Pebble noticed */
 .peb-notice { padding: 14px 16px 16px; margin: 12px 0; }
