@@ -18,17 +18,36 @@ extension Color {
 
 // MARK: - Type
 
+// Same fonts as the web: Figtree for text, Fraunces (SOFT 0, WONK 1) for titles.
 extension Font {
-    static func title(_ size: CGFloat = 32) -> Font { .system(size: size, weight: .regular, design: .serif) }
-    static let body15 = Font.system(size: 15)
-    static let meta = Font.system(size: 13)
+    static func app(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
+        let name = switch w {
+        case .medium: "Figtree-Medium"
+        case .semibold: "Figtree-SemiBold"
+        case .bold, .heavy, .black: "Figtree-Bold"
+        default: "Figtree-Regular"
+        }
+        return .custom(name, fixedSize: size)
+    }
+    static func title(_ size: CGFloat = 32, weight: CGFloat = 400) -> Font { Font(UIFont.fraunces(size, weight: weight) as CTFont) }
+    static let body15 = Font.app(15)
+    static let meta = Font.app(13)
+}
+
+extension UIFont {
+    static func fraunces(_ size: CGFloat, weight: CGFloat = 400) -> UIFont {
+        // Axis tags: wght, opsz, SOFT, WONK
+        let axes: [Int: CGFloat] = [0x77676874: weight, 0x6F70737A: min(144, max(9, size)), 0x534F4654: 0, 0x574F4E4B: 1]
+        let d = UIFontDescriptor(fontAttributes: [.name: "Fraunces-Regular", UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): axes])
+        return UIFont(descriptor: d, size: size)
+    }
 }
 
 struct Eyebrow: View {
     var text: String
     var color: Color = .muted
     var body: some View {
-        Text(text.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.88).foregroundStyle(color)
+        Text(text.uppercased()).font(.app(11, .semibold)).tracking(0.88).foregroundStyle(color)
     }
 }
 
@@ -37,7 +56,7 @@ struct SectionH: View {
     var trailing: String? = nil
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(text).font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.sectionInk)
+            Text(text).font(.app(14, .semibold)).foregroundStyle(Color.sectionInk)
             Spacer()
             if let trailing { Text(trailing).font(.meta).foregroundStyle(Color.muted) }
         }
@@ -99,7 +118,7 @@ struct PearlChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image("pebble_base_front").resizable().scaledToFit().frame(width: 18, height: 18)
-                Text(label).font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.pearlInk)
+                Text(label).font(.app(14, .semibold)).foregroundStyle(Color.pearlInk)
             }
             .padding(.horizontal, 12).frame(height: 34)
             .background(LinearGradient(colors: [Color(hex: 0xfbf5f0), Color(hex: 0xf0e9fa), Color(hex: 0xe7f1f5)], startPoint: .leading, endPoint: .trailing), in: .capsule)
@@ -115,7 +134,7 @@ struct PrimaryButton: ButtonStyle {
     var enabled = true
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15.5, weight: .semibold))
+            .font(.app(15.5, .semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: 52)
             .background(enabled ? Color.shoalBlue : Color(hex: 0xaecaee), in: .capsule)
@@ -128,7 +147,7 @@ struct PrimaryButton: ButtonStyle {
 struct GhostButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+            .font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity).frame(height: 52)
             .background(.white.opacity(0.85), in: .capsule)
             .overlay(Capsule().strokeBorder(.white))
@@ -179,7 +198,18 @@ struct Stone: View {
             .frame(width: wd, height: ht)
             .shadow(color: c.glow.opacity(lit), radius: wd * 0.22 * max(lit, 0.4))
             .shadow(color: state == .done || lit == 0 ? Color(hex: 0x21262e, 0.12) : .clear, radius: 3, y: 2)
-            .opacity(lit == 0 ? 1 : 0.55 + 0.45 * lit)
+            .saturation(lit == 0 ? 1 : 0.4 + 0.6 * lit)
+            .opacity(lit == 0 ? 1 : 0.3 + 0.7 * lit)
+            .overlay(alignment: .topTrailing) {
+                // Only urgent stones carry a mark, so meaning never rides on color alone.
+                if state == .urgent && lit > 0 && wd >= 16 {
+                    let d = max(11, min(26, wd * 0.36))
+                    Text("!").font(.app(d * 0.72, .heavy)).foregroundStyle(.white)
+                        .frame(width: d, height: d).background(Color(hex: 0xa07624), in: .circle)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                        .offset(x: d * 0.3, y: -d * 0.25)
+                }
+            }
             .accessibilityHidden(true)
     }
 }
@@ -201,7 +231,7 @@ struct Avatar: View {
             } else {
                 ZStack {
                     Circle().fill(Color.blueTint)
-                    Text(String(p?.name.prefix(1) ?? "?")).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(Color.shoalBlue)
+                    Text(String(p?.name.prefix(1) ?? "?")).font(.app(size * 0.42, .semibold)).foregroundStyle(Color.shoalBlue)
                 }
             }
         }
@@ -359,7 +389,7 @@ struct Lockup: View {
     var body: some View {
         HStack(spacing: size * 0.3) {
             ShoalMark(s: size)
-            Text("shoal").font(.system(size: size * 0.95, weight: .semibold, design: .rounded)).foregroundStyle(Color(hex: 0x0F4C93))
+            Text("shoal").font(.title(size * 0.95)).tracking(-0.02 * size).foregroundStyle(Color(hex: 0x0F4C93))
         }
         .accessibilityElement().accessibilityLabel("Shoal")
     }
@@ -370,7 +400,7 @@ struct Lockup: View {
 struct ToastView: View {
     var text: String
     var body: some View {
-        Text(text).font(.system(size: 14.5, weight: .medium)).foregroundStyle(.white)
+        Text(text).font(.app(14.5, .medium)).foregroundStyle(.white)
             .padding(.horizontal, 18).padding(.vertical, 12)
             .background(Color.navy.opacity(0.92), in: .capsule)
             .shadow(color: .black.opacity(0.15), radius: 12, y: 6)

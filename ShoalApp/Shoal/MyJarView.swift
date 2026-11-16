@@ -21,18 +21,26 @@ struct MyJarView: View {
                 Text("Your jar").font(.title()).foregroundStyle(Color.navy)
                 Spacer()
                 Button { store.go(.newTask) } label: {
-                    Image(systemName: "plus").font(.system(size: 17, weight: .semibold)).frame(width: 40, height: 40)
-                        .background(.white.opacity(0.7), in: .circle).overlay(Circle().strokeBorder(.white))
+                    Image(systemName: "plus").font(.system(size: 15, weight: .regular)).foregroundStyle(Color.ink).frame(width: 44, height: 44)
+                        .background(.white.opacity(0.85), in: .circle).overlay(Circle().strokeBorder(.white))
+                        .shadow(color: Color(hex: 0x13315d, 0.08), radius: 10, y: 4)
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Add a task")
             }
-            HStack { Spacer(); Jar(who: "you", width: 120); Spacer() }
-            HStack(spacing: 22) {
+            VStack(spacing: 6) {
+                Jar(who: "you", width: 120)
+                Text(live.isEmpty ? "All done" : "\(live.count) to do").font(.app(14)).foregroundStyle(Color.muted)
+            }
+            .frame(maxWidth: .infinity).padding(.top, 4)
+            HStack(spacing: 0) {
                 stat("\(today)", "today", .ink)
+                Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(width: 1, height: 36)
                 stat("\(urgent.count)", "urgent", .amber)
+                Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(width: 1, height: 36)
                 stat("\(live.count)", "left", .ink)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.bottom, 8)
 
             if store.ringOn {
                 HStack { Spacer(); Ring(done: done.count, urgent: urgent.count, total: all.count); Spacer() }
@@ -42,12 +50,14 @@ struct MyJarView: View {
             }
 
             VStack(alignment: .leading, spacing: 0) {
-                Picker("Show", selection: $tab) {
-                    Text("All \(live.count)").tag(Kind?.none)
-                    Text("One-time \(live.filter { $0.kind == .once }.count)").tag(Kind?.some(.once))
-                    Text("Ongoing \(live.filter { $0.kind == .repeating }.count)").tag(Kind?.some(.repeating))
+                HStack(spacing: 22) {
+                    utab("All", live.count, nil)
+                    utab("One-time", live.filter { $0.kind == .once }.count, .once)
+                    utab("Ongoing", live.filter { $0.kind == .repeating }.count, .repeating)
+                    Spacer()
                 }
-                .pickerStyle(.segmented).padding(.bottom, 8)
+                .overlay(alignment: .bottom) { Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(height: 1) }
+                .padding(.bottom, 2)
 
                 if tab != .repeating {
                     if onBreak && !store.requests.isEmpty {
@@ -59,6 +69,7 @@ struct MyJarView: View {
                     }
                 }
                 ForEach(shown) { t in
+                    if t.id != shown.first?.id { RowSep() }
                     HStack(spacing: 0) {
                         TaskLine(t: t, showWho: false, meta: t.urgent ? t.dueLabel.prefix(1).uppercased() + t.dueLabel.dropFirst() : t.kind == .once ? fmtDate(t.date) : repeatLabel(t.days))
                         Button { withAnimation(.snappy) { store.toggleDone(t.id) } } label: {
@@ -73,13 +84,13 @@ struct MyJarView: View {
 
             if !done.isEmpty {
                 Button { withAnimation(.snappy) { showDone.toggle() } } label: {
-                    HStack { Text("Done · \(done.count)").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.sectionInk)
+                    HStack { Text("Done · \(done.count)").font(.app(14, .semibold)).foregroundStyle(Color.sectionInk)
                         Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).rotationEffect(.degrees(showDone ? 90 : 0)).foregroundStyle(Color.muted) }
                     .padding(.horizontal, 4).padding(.top, 6)
                 }
                 .buttonStyle(.plain)
                 if showDone {
-                    VStack(spacing: 0) { ForEach(done) { t in TaskLine(t: t, showWho: false, meta: "Done") } }.glassCard()
+                    VStack(spacing: 0) { ForEach(done) { t in if t.id != done.first?.id { RowSep() }; TaskLine(t: t, showWho: false, meta: "Done") } }.glassCard()
                 }
             }
         }
@@ -94,7 +105,7 @@ struct MyJarView: View {
                     Button("I'll take it") { store.answer(r, yes: true); reviewing = nil }.buttonStyle(PrimaryButton())
                 }
                 .padding(.top, 8)
-                Button("Decide later") { reviewing = nil }.font(.system(size: 15, weight: .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
+                Button("Decide later") { reviewing = nil }.font(.app(15, .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
             }
             .padding(24)
             .presentationDetents([.height(320)])
@@ -104,21 +115,40 @@ struct MyJarView: View {
     private func order(_ t: CareTask) -> Int { t.urgent ? 0 : t.kind == .once ? 1 : 2 }
 
     private func stat(_ n: String, _ l: String, _ c: Color) -> some View {
-        HStack(spacing: 4) { Text(n).font(.system(size: 15, weight: .bold)).foregroundStyle(c); Text(l).font(.meta).foregroundStyle(Color.muted) }
+        VStack(spacing: 1) {
+            Text(n).font(.app(22, .semibold)).foregroundStyle(c).monospacedDigit()
+            Text(l).font(.app(14)).foregroundStyle(Color.muted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // Underlined tabs: the picked one in ink with a 2pt rule under it.
+    private func utab(_ l: String, _ n: Int, _ k: Kind?) -> some View {
+        let on = tab == k
+        return Button { withAnimation(.snappy) { tab = k } } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(l).font(.app(16, on ? .semibold : .medium)).foregroundStyle(on ? Color.ink : Color.muted)
+                Text("\(n)").font(.app(12, .semibold)).foregroundStyle(Color.muted.opacity(0.8)).monospacedDigit()
+            }
+            .frame(height: 46)
+            .overlay(alignment: .bottom) { if on { Capsule().fill(Color.ink).frame(height: 2) } }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 
     private func requestRow(eyebrow: String, title: String, cta: String, action: @escaping () -> Void) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Eyebrow(text: eyebrow, color: .shoalBlue)
-                Text(title).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                Text(title).font(.app(16, .semibold)).foregroundStyle(Color.ink)
             }
             Spacer()
-            Button(cta, action: action).font(.system(size: 14, weight: .semibold))
+            Button(cta, action: action).font(.app(13, .semibold)).foregroundStyle(Color.shoalBlue)
         }
-        .padding(12)
-        .background(Color.blueTint, in: .rect(cornerRadius: 14))
-        .padding(.bottom, 6)
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) { RowSep() }
     }
 }
 
@@ -135,7 +165,7 @@ struct Ring: View {
             Circle().trim(from: CGFloat(done) / t, to: max(CGFloat(done) / t, CGFloat(done + urgent) / t - gap))
                 .stroke(Color(hex: 0xf6d27c), style: .init(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
-                (Text("\(done)").font(.system(size: 34, weight: .semibold)) + Text("/\(total)").font(.system(size: 16)).foregroundStyle(Color.muted))
+                (Text("\(done)").font(.app(34, .semibold)) + Text("/\(total)").font(.app(16)).foregroundStyle(Color.muted))
                     .foregroundStyle(Color.navy)
                 Text("done").font(.meta).foregroundStyle(Color.muted)
             }
@@ -153,12 +183,13 @@ struct CheckInCard: View {
             Eyebrow(text: "This week")
             switch store.checkIn {
             case nil:
-                Text("How's your load feeling?").font(.title(22)).foregroundStyle(Color.navy)
-                Text("Only you see this. Shoal asks less of you when it's a lot.").font(.meta).foregroundStyle(Color.muted)
-                HStack(spacing: 8) {
-                    chip("Doing okay", .fine); chip("Stretched thin", .stretched); chip("I need a break", .onBreak)
+                Text("How's your load feeling?").font(.app(17, .semibold)).foregroundStyle(Color.ink)
+                Text("Only you see this. Shoal asks less of you when it's a lot.").font(.app(13)).foregroundStyle(Color.muted)
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) { chip("Doing okay", .fine); chip("Stretched thin", .stretched) }
+                    chip("I need a break", .onBreak)
                 }
-                .padding(.top, 4)
+                .padding(.top, 6)
             case .fine?:
                 reply("Glad to hear it.", "Nothing changes. We'll ask again Sunday.")
             case .stretched?:
@@ -166,9 +197,9 @@ struct CheckInCard: View {
                 if let s = store.stretchedSuggestion {
                     HStack(spacing: 10) {
                         Image("pebble_offer_open_hands").resizable().scaledToFit().frame(width: 32, height: 32)
-                        Text("\(s.p.name) could take “\(s.task.n)”.").font(.system(size: 14)).foregroundStyle(Color.ink)
+                        Text("\(s.p.name) could take “\(s.task.n)”.").font(.app(14)).foregroundStyle(Color.ink)
                         Spacer()
-                        Button("Ask") { store.pebbleHandoff(s.task.id) }.font(.system(size: 14, weight: .semibold))
+                        Button("Ask") { store.pebbleHandoff(s.task.id) }.font(.app(14, .semibold))
                     }
                     .pearl(radius: 16, padding: 10)
                 }
@@ -178,11 +209,11 @@ struct CheckInCard: View {
                     Text("The family knows you could use a hand.").font(.meta).foregroundStyle(Color.thanks)
                 } else {
                     Button("Tell the family") { store.toldFamily = true; store.say("Told the family you could use a hand") }
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(14, .semibold))
                 }
             }
             if store.checkIn != nil {
-                Button("Change answer") { store.checkIn = nil; store.heldOpen = false }.font(.system(size: 13, weight: .medium)).padding(.top, 2)
+                Button("Change answer") { store.checkIn = nil; store.heldOpen = false }.font(.app(13, .medium)).padding(.top, 2)
             }
         }
         .glassCard()
@@ -190,15 +221,18 @@ struct CheckInCard: View {
 
     private func reply(_ a: String, _ b: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(a).font(.title(22)).foregroundStyle(Color.navy)
-            Text(b).font(.meta).foregroundStyle(Color.muted)
+            Text(a).font(.app(17, .semibold)).foregroundStyle(Color.ink)
+            Text(b).font(.app(13)).foregroundStyle(Color.muted)
         }
     }
 
     private func chip(_ l: String, _ c: CheckIn) -> some View {
         Button { withAnimation(.snappy) { store.checkIn = c } } label: {
-            Text(l).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink).lineLimit(1).minimumScaleFactor(0.85)
-                .padding(.horizontal, 10).frame(height: 34).background(.white.opacity(0.9), in: .capsule).overlay(Capsule().strokeBorder(Color(hex: 0xdde1e6)))
+            Text(l).font(.app(14, .medium)).foregroundStyle(Color.ink).lineLimit(1)
+                .padding(.horizontal, 14).frame(maxWidth: .infinity).frame(height: 38)
+                .background(.white.opacity(0.55), in: .capsule).overlay(Capsule().strokeBorder(.white))
+                .shadow(color: Color(hex: 0x13315d, 0.06), radius: 6, y: 2)
+                .contentShape(.capsule)
         }
         .buttonStyle(.plain)
     }

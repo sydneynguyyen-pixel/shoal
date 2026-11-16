@@ -12,21 +12,17 @@ struct SetupCard: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 26)).foregroundStyle(Color.shoalBlue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("You're all set up").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text("You're all set up").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
                         Text("Change anything from My jar, People, or Settings.").font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
-                    Button("Hide") { withAnimation(.snappy) { store.setupHidden = true } }.font(.system(size: 14, weight: .semibold))
+                    Button("Hide") { withAnimation(.snappy) { store.setupHidden = true } }.font(.app(14, .semibold))
                 }
                 .glassCard()
             } else {
                 let next = store.shownSteps.first { !setup.contains($0.id) && ($0.needs == nil || setup.contains($0.needs!)) }
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        SectionH(text: "Finish setting up")
-                        Spacer()
-                        Text("\(n) of \(total)").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.muted)
-                    }
+                    SectionH(text: "Finish setting up", trailing: "\(n) of \(total)")
                     VStack(alignment: .leading, spacing: 4) {
                         GeometryReader { g in
                             ZStack(alignment: .leading) {
@@ -45,12 +41,12 @@ struct SetupCard: View {
                                     }
                                     .frame(width: 24, height: 24)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(x.t).font(.system(size: 15, weight: .semibold)).foregroundStyle(locked ? Color.muted : Color.ink)
-                                        Text(locked ? "Add tasks first" : done ? "Done · tap to change" : x.m).font(.system(size: 12.5)).foregroundStyle(Color.muted)
+                                        Text(x.t).font(.app(15, .semibold)).foregroundStyle(locked ? Color.muted : Color.ink)
+                                        Text(locked ? "Add tasks first" : done ? "Done · tap to change" : x.m).font(.app(12.5)).foregroundStyle(Color.muted)
                                             .multilineTextAlignment(.leading)
                                     }
                                     Spacer()
-                                    if x.id == next?.id { Text("Next").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.shoalBlue) }
+                                    if x.id == next?.id { Text("Next").font(.app(12, .semibold)).foregroundStyle(Color.shoalBlue) }
                                     Chevron()
                                 }
                                 .padding(.vertical, 7)
@@ -122,7 +118,7 @@ struct FamilyShelf: View {
                 ForEach(ppl) { p in
                     VStack(spacing: 4) {
                         Jar(who: p.id, width: w, lit: lit, blink: blink)
-                        if names { Text(p.name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(dark ? .white.opacity(0.85) : Color.ink) }
+                        if names { Text(p.name).font(.app(12.5, .semibold)).foregroundStyle(dark ? .white.opacity(0.85) : Color.ink) }
                     }
                 }
             }
@@ -198,7 +194,7 @@ struct SetupTasksView: View {
                         HStack(spacing: 12) {
                             Stone(state: on ? .open : .done, w: Weight(rawValue: t.1)!, base: 26).frame(width: 36)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(t.0).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink).multilineTextAlignment(.leading)
+                                Text(t.0).font(.app(15, .semibold)).foregroundStyle(Color.ink).multilineTextAlignment(.leading)
                                 Text(added.contains(t.0) ? "In the shared jar" : Weight(rawValue: t.1)!.label).font(.meta).foregroundStyle(Color.muted)
                             }
                             Spacer()
@@ -212,7 +208,7 @@ struct SetupTasksView: View {
                 }
                 HStack {
                     TextField("Add your own", text: $own).font(.body15).submitLabel(.done).onSubmit(addOwn)
-                    Button("Add", action: addOwn).font(.system(size: 14, weight: .semibold)).disabled(own.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("Add", action: addOwn).font(.app(14, .semibold)).disabled(own.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 .padding(.top, 10)
             }
@@ -266,14 +262,14 @@ struct SetupCalendarView: View {
                     HStack(spacing: 12) {
                         Image(systemName: c.2).font(.system(size: 18)).foregroundStyle(Color.shoalBlue).frame(width: 40, height: 40).background(Color.blueTint, in: .rect(cornerRadius: 10))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(c.0).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(c.0).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             Text(on ? "Connected · only busy times" : c.1).font(.meta).foregroundStyle(on ? Color.shoalBlue : Color.muted)
                         }
                         Spacer()
                         if connecting == c.0 { ProgressView().controlSize(.small) }
                         else if on { Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundStyle(Color.shoalBlue) }
                         else {
-                            Button("Connect") { connect(c.0) }.font(.system(size: 14, weight: .semibold))
+                            Button("Connect") { connect(c.0) }.font(.app(14, .semibold))
                                 .padding(.horizontal, 14).frame(height: 34).background(Color.blueTint, in: .capsule)
                         }
                     }
@@ -284,7 +280,7 @@ struct SetupCalendarView: View {
             .glassCard()
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "lock").foregroundStyle(Color.muted)
-                Text("Shoal only sees when you're busy, never what your events are.").font(.system(size: 13)).foregroundStyle(Color.muted)
+                Text("Shoal only sees when you're busy, never what your events are.").font(.app(13)).foregroundStyle(Color.muted)
             }
             .padding(.horizontal, 4)
         }
@@ -333,7 +329,7 @@ struct SetupScheduleView: View {
         HStack(spacing: 12) {
             t.stone(base: 26).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(t.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                Text(t.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                 Text(t.kind == .repeating ? repeatLabel(t.days) : fmtDate(t.date)).font(.meta).foregroundStyle(Color.muted)
             }
             Spacer()
@@ -349,7 +345,7 @@ struct SetupScheduleView: View {
                     }
                 }
             } label: {
-                Text("Change").font(.system(size: 14, weight: .semibold)).padding(.horizontal, 12).frame(height: 32).background(Color.blueTint, in: .capsule)
+                Text("Change").font(.app(14, .semibold)).padding(.horizontal, 12).frame(height: 32).background(Color.blueTint, in: .capsule)
             }
         }
         .padding(.vertical, 9)
@@ -388,7 +384,7 @@ struct SetupSplitView: View {
                     ForEach(store.mainPeople) { p in
                         HStack(spacing: 6) {
                             Avatar(p: p, size: 22)
-                            Text("\(p.name) \(store.load(p.id))/\(p.cap)h").font(.system(size: 13, weight: .semibold))
+                            Text("\(p.name) \(store.load(p.id))/\(p.cap)h").font(.app(13, .semibold))
                                 .foregroundStyle(store.room(p) < 0 ? Color.amber : Color.ink)
                         }
                         .padding(.horizontal, 10).frame(height: 32).background(.white.opacity(0.85), in: .capsule)
@@ -410,7 +406,7 @@ struct SetupSplitView: View {
         return HStack(spacing: 12) {
             t.stone(base: 26).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(t.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                Text(t.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                 Text("\(t.w.label) · about \(plural(t.w.hours, "hour"))").font(.meta).foregroundStyle(Color.muted)
             }
             Spacer()
@@ -420,7 +416,7 @@ struct SetupSplitView: View {
             } label: {
                 HStack(spacing: 6) {
                     if let p = store.person(t.who) { Avatar(p: p, size: 22) }
-                    Text(t.who == nil ? "Open" : store.name(t.who)).font(.system(size: 14, weight: .semibold))
+                    Text(t.who == nil ? "Open" : store.name(t.who)).font(.app(14, .semibold))
                     Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
                 }
                 .padding(.horizontal, 10).frame(height: 32).background(Color.blueTint, in: .capsule)

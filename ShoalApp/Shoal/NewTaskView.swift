@@ -30,7 +30,7 @@ struct NewTaskView: View {
 
             label("What needs doing?")
             TextField("e.g. Pick up shower chair", text: $name)
-                .font(.system(size: 17)).focused($nameFocus).submitLabel(.done)
+                .font(.app(17)).focused($nameFocus).submitLabel(.done)
                 .padding(.horizontal, 16).frame(height: 56)
                 .background(.white, in: .rect(cornerRadius: 16))
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(nameFocus ? Color.shoalBlue : Color(hex: 0xdde1e6), lineWidth: nameFocus ? 2 : 1))
@@ -45,17 +45,17 @@ struct NewTaskView: View {
             VStack(spacing: 0) {
                 if kind == .once {
                     DatePicker(selection: $date, in: TODAY..., displayedComponents: .date) {
-                        Text("Due date").font(.system(size: 15.5, weight: .semibold))
+                        Text("Due date").font(.app(15.5, .semibold))
                     }
                     .padding(.vertical, 6)
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack { Text("Repeats").font(.system(size: 15.5, weight: .semibold)); Spacer(); Text(repeatLabel(Array(days))).font(.meta).foregroundStyle(Color.muted) }
+                        HStack { Text("Repeats").font(.app(15.5, .semibold)); Spacer(); Text(repeatLabel(Array(days))).font(.meta).foregroundStyle(Color.muted) }
                         HStack(spacing: 6) {
                             ForEach(DAYS, id: \.self) { d in
                                 let on = days.contains(d)
                                 Button { if on { days.remove(d) } else { days.insert(d) } } label: {
-                                    Text(String(d.prefix(1))).font(.system(size: 14, weight: .semibold))
+                                    Text(String(d.prefix(1))).font(.app(14, .semibold))
                                         .frame(width: 36, height: 36)
                                         .foregroundStyle(on ? .white : Color.ink)
                                         .background(on ? Color.shoalBlue : .white, in: .circle)
@@ -75,14 +75,14 @@ struct NewTaskView: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text("Stone size").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
-                            if !sizeSet && store.pebbleOn && !name.isEmpty { Text("Pebble's guess").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.pearlInk) }
+                            Text("Stone size").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                            if !sizeSet && store.pebbleOn && !name.isEmpty { Text("Pebble's guess").font(.app(12, .semibold)).foregroundStyle(Color.pearlInk) }
                         }
                         Text("Bigger stone, bigger job").font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
                     Stone(state: .open, w: w, base: 26)
-                    Text(w.label).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                    Text(w.label).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                     Chevron()
                 }
                 .glassCard(padding: 14)
@@ -100,7 +100,7 @@ struct NewTaskView: View {
                             if let p = store.person(who), !store.canTake(p, draft) { who = nil }
                         } label: {
                             Text(k == .main ? "Main caregivers" : k == .trusted ? "Trusted circle" : "Kids & teens")
-                                .font(.system(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                                .font(.app(13, .semibold)).lineLimit(1).minimumScaleFactor(0.8)
                                 .padding(.horizontal, 10).frame(height: 34)
                                 .foregroundStyle(on ? Color.shoalBlue : Color.ink)
                                 .background(on ? Color.blueTint : .white.opacity(0.9), in: .capsule)
@@ -114,7 +114,7 @@ struct NewTaskView: View {
                 Divider()
                 Toggle(isOn: $remote) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Can be done from anywhere").font(.system(size: 15.5, weight: .semibold))
+                        Text("Can be done from anywhere").font(.app(15.5, .semibold))
                         Text(remoteNote(t)).font(.meta).foregroundStyle(Color.muted)
                     }
                 }
@@ -157,7 +157,7 @@ struct NewTaskView: View {
     }
 
     private func label(_ s: String) -> some View {
-        Text(s).font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.sectionInk).padding(.horizontal, 4).padding(.top, 6)
+        Text(s).font(.app(14, .semibold)).foregroundStyle(Color.sectionInk).padding(.horizontal, 4).padding(.top, 6)
     }
 
     // Pebble guesses the size from the words, until you pick one yourself.
@@ -179,7 +179,7 @@ struct NewTaskView: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 face().padding(3).overlay(Circle().strokeBorder(on ? Color.shoalBlue : .clear, lineWidth: 2.5))
-                Text(label).font(.system(size: 13, weight: on ? .semibold : .regular)).foregroundStyle(on ? Color.shoalBlue : Color.ink)
+                Text(label).font(.app(13, on ? .semibold : .regular)).foregroundStyle(on ? Color.shoalBlue : Color.ink)
             }
         }
         .buttonStyle(.plain)

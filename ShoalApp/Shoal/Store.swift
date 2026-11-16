@@ -50,7 +50,7 @@ final class Store {
     var people: [Person] = DEMO_PEOPLE
     var tasks: [CareTask] = demoTasks()
     var pebbleOn = true
-    var ringOn = true
+    var ringOn = false
     var checkIn: CheckIn?
     var heldOpen = false
     var thanked: Set<String> = []

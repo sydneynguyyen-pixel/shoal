@@ -78,7 +78,7 @@ struct StoneColorPicker: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(spacing: 8) {
                 SampleJar(states: ["done", "done", "progress", "urgent", "open", "progress", "open", "urgent", "progress"], width: 96)
-                Text(on.map { "\($0.t) colors" } ?? "Your own colors").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.muted)
+                Text(on.map { "\($0.t) colors" } ?? "Your own colors").font(.app(13, .semibold)).foregroundStyle(Color.muted)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -102,9 +102,9 @@ struct StoneColorPicker: View {
                                 if on?.id == p.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.shoalBlue) }
                             }
                             .frame(height: 26)
-                            Text(p.t).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Color.ink)
-                            if p.rec { Text("Recommended").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.shoalBlue) }
-                            Text(p.d).font(.system(size: 12)).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
+                            Text(p.t).font(.app(14.5, .semibold)).foregroundStyle(Color.ink)
+                            if p.rec { Text("Recommended").font(.app(11, .semibold)).foregroundStyle(Color.shoalBlue) }
+                            Text(p.d).font(.app(12)).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
@@ -120,11 +120,11 @@ struct StoneColorPicker: View {
                     if on == nil {
                         HStack(spacing: 4) { ForEach(COLOR_STATES, id: \.self) { s in Stone(state: s, w: .small, base: 22) } }
                     } else {
-                        Image(systemName: "plus").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.shoalBlue)
+                        Image(systemName: "plus").font(.app(16, .semibold)).foregroundStyle(Color.shoalBlue)
                             .frame(width: 34, height: 34).background(Color.blueTint, in: .circle)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(on == nil ? "Your own colors" : "Make your own").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text(on == nil ? "Your own colors" : "Make your own").font(.app(15, .semibold)).foregroundStyle(Color.ink)
                         Text(on == nil ? "Tap to change them" : "Pick a color for each stone").font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
@@ -140,9 +140,9 @@ struct StoneColorPicker: View {
         @Bindable var store = store
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Button { custom = false } label: { Label("Presets", systemImage: "chevron.left").font(.system(size: 14, weight: .semibold)) }
+                Button { custom = false } label: { Label("Presets", systemImage: "chevron.left").font(.app(14, .semibold)) }
                 Spacer()
-                Text("Make your own").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.ink)
+                Text("Make your own").font(.app(14, .semibold)).foregroundStyle(Color.ink)
             }
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(COLOR_STATES, id: \.self) { s in
@@ -150,8 +150,8 @@ struct StoneColorPicker: View {
                         HStack(spacing: 10) {
                             Stone(state: s, w: .small, base: 24)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text("\(s.short) · \(store.colors.hue(s).name.capitalized)").font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Color.ink)
-                                Text(s.meaning).font(.system(size: 12)).foregroundStyle(Color.muted)
+                                Text("\(s.short) · \(store.colors.hue(s).name.capitalized)").font(.app(14.5, .semibold)).foregroundStyle(Color.ink)
+                                Text(s.meaning).font(.app(12)).foregroundStyle(Color.muted)
                             }
                         }
                         HStack(spacing: 6) {
@@ -174,19 +174,19 @@ struct StoneColorPicker: View {
                 HStack(spacing: 10) {
                     Stone(state: .done, w: .small, base: 24)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Done · Off").font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Color.ink)
-                        Text("Always off, so it's clear the task is finished").font(.system(size: 12)).foregroundStyle(Color.muted)
+                        Text("Done · Off").font(.app(14.5, .semibold)).foregroundStyle(Color.ink)
+                        Text("Always off, so it's clear the task is finished").font(.app(12)).foregroundStyle(Color.muted)
                     }
                 }
             }
             .glassCard()
             ForEach(Array(store.colors.lookAlike.enumerated()), id: \.offset) { _, w in
                 Text("\(HUES[w.0]!.name.capitalized) and \(HUES[w.1]!.name) can look alike\(w.2 == "all" ? ", even with typical color vision" : " with \(w.2) color blindness"). Try Easy to tell apart.")
-                    .font(.system(size: 13)).foregroundStyle(Color(hex: 0x8a5d0c))
+                    .font(.app(13)).foregroundStyle(Color(hex: 0x8a5d0c))
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(hex: 0xf6d27c, 0.22), in: .rect(cornerRadius: 14))
             }
-            Text("Urgent stones also show a !, so color is never the only sign that something needs doing.").font(.system(size: 12.5)).foregroundStyle(Color.muted)
+            Text("Urgent stones also show a !, so color is never the only sign that something needs doing.").font(.app(12.5)).foregroundStyle(Color.muted)
         }
     }
 }

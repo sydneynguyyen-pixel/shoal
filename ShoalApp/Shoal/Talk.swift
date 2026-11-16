@@ -198,12 +198,12 @@ struct TalkView: View {
             Text("I can't help with symptoms or medicine. \(LOVED)'s hospice team can, any time of day or night.")
                 .font(.body15).foregroundStyle(Color.muted).multilineTextAlignment(.center).frame(maxWidth: .infinity)
             Label("Pebble didn't save anything you said. It never contacts hospice on its own. You decide.", systemImage: "lock")
-                .font(.system(size: 13.5)).foregroundStyle(Color.ink).glassCard(padding: 14)
+                .font(.app(13.5)).foregroundStyle(Color.ink).glassCard(padding: 14)
         case .review:
             HStack(spacing: 12) {
                 Image("pebble_think_01").resizable().scaledToFit().frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Waiting for your yes").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: 0x8a5d0c))
+                    Text("Waiting for your yes").font(.app(12, .semibold)).foregroundStyle(Color(hex: 0x8a5d0c))
                         .padding(.horizontal, 8).padding(.vertical, 3).background(Color(hex: 0xf6d27c, 0.35), in: .capsule)
                     Text(props.isEmpty ? "I didn't find anything to add." : "Here's what I'd add. Change anything.").font(.title(22)).foregroundStyle(Color.navy)
                 }
@@ -214,7 +214,7 @@ struct TalkView: View {
                         if p.kind == .dup { Stone(state: .done, w: .small, base: 22).frame(width: 26) }
                         else { Image(systemName: p.on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(p.on ? Color.shoalBlue : Color.muted) }
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(p.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(p.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             Text(p.m).font(.meta).foregroundStyle(p.kind == .step || p.kind == .dup ? Color(hex: 0x8a5d0c) : Color.muted)
                             if let s = p.step { Text("Step: \(s)").font(.meta).foregroundStyle(Color.muted) }
                         }
@@ -234,7 +234,7 @@ struct TalkView: View {
                     (Text("I left \(skipped.count == 1 ? "one thing" : "\(skipped.count) things") out. ").bold()
                      + Text(skipped.contains { hits(PEB_MEDS, $0) } ? "Anything about medicine or symptoms is a question for \(LOVED)'s hospice nurse. " : "")
                      + Text("“\(first)”"))
-                        .font(.system(size: 13.5)).foregroundStyle(Color.ink)
+                        .font(.app(13.5)).foregroundStyle(Color.ink)
                 }
                 .glassCard(padding: 12)
             }
@@ -247,7 +247,7 @@ struct TalkView: View {
                     HStack(spacing: 12) {
                         Stone(state: x.st, w: .small, base: 22).frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(x.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(x.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             Text(x.m).font(.meta).foregroundStyle(Color.muted)
                         }
                     }
@@ -257,7 +257,7 @@ struct TalkView: View {
             Text("Undo anything from What Pebble did.").font(.meta).foregroundStyle(Color.muted).frame(maxWidth: .infinity)
         case .listen:
             figure("pebble_base_front", 110)
-            Text("Talk or type").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Color.muted)
+            Text("Talk or type").font(.app(12.5, .semibold)).foregroundStyle(Color.muted)
                 .padding(.horizontal, 10).padding(.vertical, 4).background(.white.opacity(0.8), in: .capsule).frame(maxWidth: .infinity)
             TextField("What's going on? Say it however it comes out.", text: $text, axis: .vertical)
                 .focused($typing)
@@ -269,6 +269,8 @@ struct TalkView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) { ForEach(samples, id: \.0) { s in PearlChip(label: s.0) { text = s.1 } } }
             }
+            // Scroll edge to edge so chips slide off the screen, not off a hard line inside the margin.
+            .contentMargins(.horizontal, 20, for: .scrollContent).padding(.horizontal, -20)
         }
     }
 
@@ -277,7 +279,7 @@ struct TalkView: View {
         case .sensitive:
             VStack(spacing: 6) {
                 Button("Call hospice") { store.say("In the real app this calls the hospice number the family saved.") }.buttonStyle(PrimaryButton())
-                Button("Go back") { withAnimation(.snappy) { phase = .listen } }.font(.system(size: 15, weight: .semibold)).frame(height: 36)
+                Button("Go back") { withAnimation(.snappy) { phase = .listen } }.font(.app(15, .semibold)).frame(height: 36)
             }
         case .review:
             let on = props.filter { $0.on && $0.kind != .dup }.count
@@ -328,7 +330,7 @@ struct MonthView: View {
             HStack(spacing: 12) {
                 Image("pebble_think_01").resizable().scaledToFit().frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 4) {
-                    Eyebrow(text: "\(Date.now.formatted(.dateTime.month(.wide))) check-in")
+                    Eyebrow(text: "\(TODAY.formatted(.dateTime.month(.wide))) check-in")
                     Text("A few things I noticed this month").font(.title(24)).foregroundStyle(Color.navy)
                 }
             }
@@ -337,7 +339,7 @@ struct MonthView: View {
                     HStack(spacing: 12) {
                         Stone(state: x.st, w: .small, base: 22).frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(x.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(x.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             Text(x.m).font(.meta).foregroundStyle(Color.muted)
                         }
                     }
@@ -347,7 +349,7 @@ struct MonthView: View {
             HStack(alignment: .top, spacing: 10) {
                 Stone(state: .progress, w: .small, base: 16)
                 Text("Pebble only raises this at the check-in, with everyone. Never as a nudge to one person. Rings show how much room someone has, never why.")
-                    .font(.system(size: 13)).foregroundStyle(Color.ink)
+                    .font(.app(13)).foregroundStyle(Color.ink)
             }
             .glassCard(padding: 12)
         }
@@ -358,7 +360,7 @@ struct MonthView: View {
                     store.back()
                     store.say("Okay. Pebble will check in next month.")
                 }
-                .buttonStyle(GhostButton())
+                .buttonStyle(GhostButton()).frame(width: 140)
                 Button("Move stones together") { if store.monthMove == nil { nothing = true } else { move = true } }.buttonStyle(PrimaryButton())
             }
             .padding(.horizontal, 20).padding(.vertical, 10).background(.ultraThinMaterial)
@@ -381,7 +383,7 @@ private struct MoveSheet: View {
                 HStack(spacing: 12) {
                     m.t.stone(base: 26).frame(width: 34)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(m.t.n).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text(m.t.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                         Text("\(m.from.name) → \(m.to.name) · \(m.t.w.label.lowercased())").font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
@@ -418,7 +420,7 @@ struct MonthEntry: View {
                 HStack(spacing: 12) {
                     Image("pebble_think_01").resizable().scaledToFit().frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Monthly check-in").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text("Monthly check-in").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
                         Text("Pebble has a few things for when you're all together").font(.meta).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)

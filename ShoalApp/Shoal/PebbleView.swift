@@ -11,12 +11,9 @@ struct PebbleView: View {
         let open = store.active.first { $0.who == nil }
         Page {
             VStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(RadialGradient(colors: [Color(hex: 0x8cc4f6, 0.35), .clear], center: .center, startRadius: 0, endRadius: 130))
-                        .frame(width: 260, height: 260)
-                    Image("pebble_base_front").resizable().scaledToFit().frame(width: 150, height: 150)
-                }
-                .frame(height: 200)
+                Image("pebble_base_front").resizable().scaledToFit().frame(width: 150, height: 150)
+                    .shadow(color: Color(red: 90/255, green: 60/255, blue: 40/255, opacity: 0.18), radius: 8, y: 12)
+                    .padding(.top, 12)
                 Text("Hi, I'm Pebble").font(.title()).foregroundStyle(Color.navy)
                 Text("Tell me what's going on. I'll sort it into tasks.").font(.body15).foregroundStyle(Color.muted).multilineTextAlignment(.center)
                 Button("Talk it through") { talk = true }.buttonStyle(PrimaryButton()).padding(.top, 6)
@@ -30,10 +27,19 @@ struct PebbleView: View {
                     if let open { store.pebbleHandoff(open.id) } else { store.say("Every task has someone. Nothing to ask for.") }
                 }
                 tile("pebble_research_glasses_focused", "Help with costs", "\(PROGRAMS.count) programs") { costs = true }
+                tile("pebble_think_01", "Monthly check-in", "For when you're together") { store.go(.month) }
                 tile("pebble_carry_03", "What I did", store.pebbleLog.isEmpty ? "Nothing yet" : "\(plural(store.pebbleLog.count, "change")) · undo any") { log = true }
-                tile("pebble_peer_down", "What I can see", "Answers and goals, never the care page") { sees = true }
             }
             .padding(.top, 6)
+            Button { sees = true } label: {
+                HStack {
+                    Text("What Pebble can see").font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                    Spacer()
+                    Chevron()
+                }
+                .glassCard(radius: 26, padding: 18)
+            }
+            .buttonStyle(Pressable())
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $talk) { TalkView() }
@@ -46,8 +52,8 @@ struct PebbleView: View {
         Button(action: a) {
             VStack(alignment: .leading, spacing: 6) {
                 Image(img).resizable().scaledToFit().frame(width: 44, height: 44)
-                Text(lab).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
-                Text(note).font(.system(size: 12)).foregroundStyle(Color.muted).lineLimit(2).multilineTextAlignment(.leading)
+                Text(lab).font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                Text(note).font(.app(12)).foregroundStyle(Color.muted).lineLimit(2).multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
             .frame(height: 120, alignment: .topLeading)
@@ -69,7 +75,6 @@ let PROGRAMS = [
 struct CostsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var saved: Set<String> = []
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -79,24 +84,24 @@ struct CostsView: View {
                     Text("Programs a family caring at home in California may qualify for. Check each one at its source.").font(.body15).foregroundStyle(Color.muted)
                     ForEach(PROGRAMS) { p in
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(p.n).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
-                            Text(p.d).font(.system(size: 14)).foregroundStyle(Color.muted)
+                            Text(p.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                            Text(p.d).font(.app(14)).foregroundStyle(Color.muted)
                             HStack {
-                                Text(p.src).font(.system(size: 12, weight: .medium)).foregroundStyle(Color.pearlInk)
+                                Text(p.src).font(.app(12, .medium)).foregroundStyle(Color.pearlInk)
                                 Spacer()
-                                Button(saved.contains(p.id) ? "Added to your jar" : "Look into it") {
-                                    guard !saved.contains(p.id) else { return }
-                                    saved.insert(p.id)
+                                let added = store.tasks.contains { $0.n == "Look into \(p.n)" }
+                                Button(added ? "Added to your jar" : "Look into it") {
+                                    guard !added else { return }
                                     let id = "c\(UUID().uuidString.prefix(6))"
                                     store.tasks.append(CareTask(id: id, n: "Look into \(p.n)", who: "you", w: .small, cat: "paper", kind: .once, date: addDays(7)))
                                     store.pebbleDid("Added “Look into \(p.n)” to your jar", how: "From Help with costs · you said yes", undo: .task(id))
                                 }
-                                .font(.system(size: 14, weight: .semibold)).disabled(saved.contains(p.id))
+                                .font(.app(14, .semibold)).disabled(added)
                             }
                         }
                         .pearl(radius: 18, padding: 14)
                     }
-                    Text("Sample programs. Pebble doesn't give legal or financial advice.").font(.system(size: 12)).foregroundStyle(Color.muted)
+                    Text("Sample programs. Pebble doesn't give legal or financial advice.").font(.app(12)).foregroundStyle(Color.muted)
                 }
                 .padding(20)
             }
@@ -118,21 +123,21 @@ struct LogView: View {
                 ForEach(store.pebbleLog) { e in
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(e.what).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Color.ink).strikethrough(e.undone)
+                            Text(e.what).font(.app(14.5, .semibold)).foregroundStyle(Color.ink).strikethrough(e.undone)
                             Text(e.how).font(.meta).foregroundStyle(Color.muted)
                         }
                         Spacer()
                         if e.undone {
-                            Text("Undone").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.muted)
+                            Text("Undone").font(.app(13, .semibold)).foregroundStyle(Color.muted)
                         } else if e.undo != nil {
-                            Button("Undo") { withAnimation(.snappy) { store.undoPebble(e) } }.font(.system(size: 14, weight: .semibold))
+                            Button("Undo") { withAnimation(.snappy) { store.undoPebble(e) } }.font(.app(14, .semibold))
                         }
                     }
                     .pearl(radius: 14, padding: 12)
                 }
                 if !store.pebbleLog.isEmpty {
                     Button("Clear this list") { withAnimation(.snappy) { store.pebbleLog.removeAll() } }
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.muted).frame(maxWidth: .infinity).padding(.top, 4)
+                        .font(.app(14, .semibold)).foregroundStyle(Color.muted).frame(maxWidth: .infinity).padding(.top, 4)
                 }
             }
             .padding(24)

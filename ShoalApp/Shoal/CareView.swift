@@ -27,12 +27,12 @@ struct CareLockView: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 10)
-            Image(systemName: "lock.fill").font(.system(size: 26, weight: .semibold)).foregroundStyle(Color.navy)
+            Image(systemName: "lock.fill").font(.app(26, .semibold)).foregroundStyle(Color.navy)
                 .frame(width: 60, height: 60).background(.white.opacity(0.8), in: .circle)
                 .overlay(Circle().strokeBorder(.white))
             Text("\(LOVED)'s care page").font(.title(28)).foregroundStyle(Color.navy).padding(.top, 14)
             Text(looking ? "Looking for your face…" : wrong ? "That's not it. Try again." : "Enter your PIN")
-                .font(.system(size: 15)).foregroundStyle(wrong ? Color.alert : Color.muted).padding(.top, 6)
+                .font(.app(15)).foregroundStyle(wrong ? Color.alert : Color.muted).padding(.top, 6)
                 .contentTransition(.opacity)
             HStack(spacing: 18) {
                 ForEach(0..<4, id: \.self) { i in
@@ -71,7 +71,7 @@ struct CareLockView: View {
             .buttonStyle(Pressable()).accessibilityLabel("Delete")
         default:
             Button { press(k) } label: {
-                Text(k).font(.system(size: 30, weight: .regular)).foregroundStyle(Color.navy)
+                Text(k).font(.app(30, .regular)).foregroundStyle(Color.navy)
                     .frame(width: 78, height: 78).background(.white.opacity(0.75), in: .circle)
                     .overlay(Circle().strokeBorder(.white))
                     .shadow(color: Color(hex: 0x21262e, 0.05), radius: 8, y: 4)
@@ -139,7 +139,7 @@ struct CarePage: View {
                     Spacer()
                     if !nurse {
                         Button { withAnimation(.snappy) { store.lockCare() } } label: {
-                            Label("Lock", systemImage: "lock").font(.system(size: 14, weight: .semibold))
+                            Label("Lock", systemImage: "lock").font(.app(14, .semibold))
                                 .padding(.horizontal, 12).frame(height: 34).background(.white.opacity(0.8), in: .capsule)
                                 .overlay(Capsule().strokeBorder(.white))
                         }
@@ -151,7 +151,7 @@ struct CarePage: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.alert).font(.system(size: 16))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Allergic: \(a.short)").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.alert)
+                            Text("Allergic: \(a.short)").font(.app(15.5, .semibold)).foregroundStyle(Color.alert)
                             Text(a.body).font(.meta).foregroundStyle(Color.ink)
                         }
                     }
@@ -163,7 +163,7 @@ struct CarePage: View {
 
                 HStack(alignment: .firstTextBaseline) {
                     SectionH(text: "Medications")
-                    Button("Log") { showLog = true }.font(.system(size: 14, weight: .semibold)).padding(.top, 22)
+                    Button("Log") { showLog = true }.font(.app(14, .semibold)).padding(.top, 22)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                     ForEach(store.meds.filter(\.prn)) { m in
@@ -180,7 +180,7 @@ struct CarePage: View {
                 .glassCard()
                 if !nurse {
                     Button { addMed = true } label: {
-                        Label("Add a med", systemImage: "plus").font(.system(size: 14.5, weight: .semibold))
+                        Label("Add a med", systemImage: "plus").font(.app(14.5, .semibold))
                     }
                     .padding(.leading, 4).padding(.top, 2)
                 }
@@ -203,7 +203,7 @@ struct CarePage: View {
             SectionH(text: title)
             if !nurse {
                 Button { edit = NoteEdit(note: CareNote(t: "", body: "", by: "you", on: "Today"), s: s, new: true) } label: {
-                    Image(systemName: "plus").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "plus").font(.app(15, .semibold))
                 }
                 .padding(.top, 22).accessibilityLabel("Add to \(title)")
             }
@@ -250,11 +250,11 @@ struct MedTile: View {
         VStack(alignment: .leading, spacing: 8) {
             MedRing(progress: progress, ready: ok == nil)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(m.name) \(m.amt)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
-                Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now").font(.system(size: 13.5, weight: .semibold))
+                Text("\(m.name) \(m.amt)").font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now").font(.app(13.5, .semibold))
                     .foregroundStyle(ok == nil ? Color.shoalBlue : Color(hex: 0x8a5d0c))
                 Text(last.map { "\(store.name($0.by)) · \(ago($0.at))" } ?? "Not given yet").font(.meta).foregroundStyle(Color.muted)
-                Text("As needed · \(m.every) h apart").font(.system(size: 12)).foregroundStyle(Color.muted)
+                Text("As needed · \(m.every) h apart").font(.app(12)).foregroundStyle(Color.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -270,9 +270,9 @@ struct DailyRow: View {
         let given = store.givenToday(m)
         HStack(spacing: 12) {
             Image(systemName: given != nil ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 22)).foregroundStyle(given != nil ? Color.shoalBlue : Color(hex: 0xb7bcc4))
+                .font(.app(22)).foregroundStyle(given != nil ? Color.shoalBlue : Color(hex: 0xb7bcc4))
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(m.name) \(m.amt)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                Text("\(m.name) \(m.amt)").font(.app(15, .semibold)).foregroundStyle(Color.ink)
                 Text(given.map { "\(store.name($0.by)) gave it at \(clock($0.at))" } ?? "\(m.time) · \(m.how.lowercased())")
                     .font(.meta).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
             }
@@ -289,11 +289,11 @@ struct NoteTile: View {
     var n: CareNote
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(n.t).font(.system(size: 12, weight: .semibold)).foregroundStyle(n.alert ? Color.alert : Color.muted)
-            Text(n.short.isEmpty ? n.body : n.short).font(.system(size: 14.5, weight: .medium)).foregroundStyle(Color.ink)
+            Text(n.t).font(.app(12, .semibold)).foregroundStyle(n.alert ? Color.alert : Color.muted)
+            Text(n.short.isEmpty ? n.body : n.short).font(.app(14.5, .medium)).foregroundStyle(Color.ink)
                 .lineLimit(4).multilineTextAlignment(.leading)
             Spacer(minLength: 0)
-            Text("\(n.by == "you" ? "You" : store.name(n.by)) · \(n.on)").font(.system(size: 11.5)).foregroundStyle(Color.muted)
+            Text("\(n.by == "you" ? "You" : store.name(n.by)) · \(n.on)").font(.app(11.5)).foregroundStyle(Color.muted)
         }
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
         .glassCard(radius: 18, padding: 13)
@@ -325,17 +325,17 @@ struct DoseSheet: View {
                 }
                 .buttonStyle(GhostButton())
                 Button("Hospice said okay, log it anyway") { store.logDose(m); dismiss() }
-                    .font(.system(size: 14.5, weight: .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
+                    .font(.app(14.5, .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
             } else if let already {
                 Text("Already given").font(.title(26)).foregroundStyle(Color.navy)
                 Text("\(store.name(already.by)) gave \(m.name.lowercased()) at \(clock(already.at)) today.").font(.body15).foregroundStyle(Color.ink)
                 Spacer(minLength: 8)
                 Button("Okay") { dismiss() }.buttonStyle(PrimaryButton())
                 Button("Log another dose anyway") { store.logDose(m); dismiss() }
-                    .font(.system(size: 14.5, weight: .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
+                    .font(.app(14.5, .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
             } else {
                 Text("Log a dose").font(.title(26)).foregroundStyle(Color.navy)
-                Text("\(m.amt) of \(m.name.lowercased())").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.ink)
+                Text("\(m.amt) of \(m.name.lowercased())").font(.app(17, .semibold)).foregroundStyle(Color.ink)
                 Text("\(m.how). \(m.why).").font(.body15).foregroundStyle(Color.muted)
                 Spacer(minLength: 8)
                 HStack(spacing: 10) {
@@ -359,14 +359,14 @@ struct DoseLogSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             if let m = store.med(d.med) {
-                                Text("\(m.name) \(m.amt)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                                Text("\(m.name) \(m.amt)").font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             }
                             Text("\(d.by == "you" ? "You" : store.name(d.by)) · \(clock(d.at)), \(ago(d.at))").font(.meta).foregroundStyle(Color.muted)
                         }
                         Spacer()
                         if d.by == "you" && !nurse {
                             Button("Remove", role: .destructive) { withAnimation { store.removeDose(d) } }
-                                .font(.system(size: 14, weight: .semibold)).buttonStyle(.borderless)
+                                .font(.app(14, .semibold)).buttonStyle(.borderless)
                         }
                     }
                 }
@@ -475,31 +475,31 @@ struct CareHomeCard: View {
     @Environment(Store.self) private var store
     var body: some View {
         Button { store.go(.care(nurse: false)) } label: {
-            HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                TileTop(label: "\(LOVED)'s care")
                 if store.careUnlocked {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(store.meds.filter(\.prn)) { m in
-                            let ok = store.okAt(m)
-                            HStack(spacing: 8) {
-                                MedRing(progress: ok == nil ? 1 : progressOf(m), ready: ok == nil, size: 22)
-                                Text(m.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
-                                Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now").font(.meta).foregroundStyle(Color.muted)
-                            }
+                    ForEach(store.meds.filter(\.prn)) { m in
+                        let ok = store.okAt(m)
+                        if m.id != store.meds.first(where: \.prn)?.id { RowSep() }
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(m.name).font(.app(14, .bold)).foregroundStyle(Color.navy)
+                            Spacer()
+                            Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now if needed").font(.app(13, ok == nil ? .regular : .semibold))
+                                .foregroundStyle(ok == nil ? Color.muted : Color(hex: 0x8a5a07))
                         }
-                        Text("Allergic: \(store.allergies)").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.alert)
+                        .padding(.vertical, 7)
                     }
+                    Text("Allergic: \(store.allergies)").font(.app(13, .semibold)).foregroundStyle(Color.alert).padding(.top, 8)
                 } else {
-                    Image(systemName: "lock.fill").foregroundStyle(Color.navy).frame(width: 36, height: 36)
-                        .background(.white.opacity(0.85), in: .circle)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Locked").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
-                        Text("Meds, allergies and wishes").font(.meta).foregroundStyle(Color.muted)
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.shoalBlue)
+                            .frame(width: 36, height: 36).background(Color.blueTint, in: .circle)
+                        Text("Locked").font(.app(13.5)).foregroundStyle(Color.muted)
                     }
+                    .padding(.top, 4)
                 }
-                Spacer()
-                Chevron()
             }
-            .glassCard(padding: 14)
+            .homeTile()
         }
         .buttonStyle(Pressable())
         .accessibilityLabel(store.careUnlocked ? "\(LOVED)'s care page" : "\(LOVED)'s care page, locked")
@@ -527,11 +527,11 @@ struct MedTaskCard: View {
                             let ok = store.okAt(m)
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(m.name) \(m.amt)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                                    Text("\(m.name) \(m.amt)").font(.app(15, .semibold)).foregroundStyle(Color.ink)
                                     Text(store.lastDose(m.id).map { "\(store.name($0.by)) · \(ago($0.at))" } ?? "Not given yet").font(.meta).foregroundStyle(Color.muted)
                                 }
                                 Spacer()
-                                Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now").font(.system(size: 13.5, weight: .semibold))
+                                Text(ok.map { "Okay after \(clock($0))" } ?? "Okay now").font(.app(13.5, .semibold))
                                     .foregroundStyle(ok == nil ? Color.shoalBlue : Color(hex: 0x8a5d0c))
                             }
                             .padding(.vertical, 6)
@@ -541,13 +541,13 @@ struct MedTaskCard: View {
                     }
                     .buttonStyle(Pressable())
                 }
-                Button("Full log") { store.go(.care(nurse: false)) }.font(.system(size: 14, weight: .semibold))
+                Button("Full log") { store.go(.care(nurse: false)) }.font(.app(14, .semibold))
             } else {
                 HStack {
                     Image(systemName: "lock.fill").foregroundStyle(Color.navy)
-                    Text("Doses are locked").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                    Text("Doses are locked").font(.app(15, .semibold)).foregroundStyle(Color.ink)
                     Spacer()
-                    Button("Unlock") { store.go(.care(nurse: false)) }.font(.system(size: 14.5, weight: .semibold))
+                    Button("Unlock") { store.go(.care(nurse: false)) }.font(.app(14.5, .semibold))
                 }
             }
         }
@@ -578,7 +578,7 @@ struct CareLockSheet: View {
                 Button("Change PIN") { withAnimation(.snappy) { changing = true } }.buttonStyle(GhostButton())
                 Button("Lock now") { store.careUnlockedAt = nil; store.say("Locked"); dismiss() }.buttonStyle(GhostButton())
                 Button("See Ana's view") { dismiss(); store.go(.care(nurse: true)) }
-                    .font(.system(size: 14.5, weight: .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
+                    .font(.app(14.5, .semibold)).frame(maxWidth: .infinity).padding(.top, 4)
             }
         }
         .padding(24)

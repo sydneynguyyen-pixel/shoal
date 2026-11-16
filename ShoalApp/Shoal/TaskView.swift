@@ -6,7 +6,7 @@ struct Badge: View {
     var body: some View {
         HStack(spacing: 5) {
             if amber { Stone(state: .urgent, w: .small, base: 16) }
-            Text(text).font(.system(size: 12.5, weight: .semibold))
+            Text(text).font(.app(12.5, .semibold))
         }
         .foregroundStyle(amber ? Color(hex: 0x8a5d0c) : Color.sectionInk)
         .padding(.horizontal, 10).frame(height: 26)
@@ -20,6 +20,8 @@ struct TaskView: View {
     var id: String
     @State private var sizeSheet = false
     @State private var costs = false
+    @State private var term: String?
+    @State private var dateSheet = false
 
     var body: some View {
         if let t = store.task(id) {
@@ -39,7 +41,7 @@ struct TaskView: View {
                         Circle().strokeBorder(Color(hex: 0xb7bcc4), style: .init(lineWidth: 1.4, dash: [4, 3])).frame(width: 40, height: 40)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(p?.name ?? "Unassigned").font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text(p?.name ?? "Unassigned").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
                         Text(t.done ? "Done · stone resting" : stoneLine(t)).font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
@@ -52,7 +54,7 @@ struct TaskView: View {
                         Avatar(p: store.person(h.to.first), size: 32)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(h.pending ? "Waiting on \(h.to.map { store.name($0) }.joined(separator: ", "))" : "\(store.name(t.who)) said yes")
-                                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.ink)
+                                .font(.app(15, .semibold)).foregroundStyle(Color.ink)
                             if !h.note.isEmpty { Text("“\(h.note)”").font(.meta).foregroundStyle(Color.muted).lineLimit(2) }
                         }
                         Spacer()
@@ -62,19 +64,20 @@ struct TaskView: View {
                 }
 
                 if !t.steps.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack { Text("Steps").font(.system(size: 15, weight: .semibold)); Spacer(); Text("\(stepsDone) of \(t.steps.count)").font(.meta).foregroundStyle(Color.muted) }
-                        ProgressView(value: Double(stepsDone), total: Double(t.steps.count)).tint(.shoalBlue)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack { Text("Steps").font(.app(15, .semibold)).foregroundStyle(Color.ink); Spacer(); Text("\(stepsDone) of \(t.steps.count)").font(.app(13)).foregroundStyle(Color.muted) }
+                        Capsule().fill(Color(hex: 0x418ef3, 0.16)).frame(height: 6)
+                            .overlay(alignment: .leading) { GeometryReader { g in Capsule().fill(Color.shoalBlue).frame(width: g.size.width * CGFloat(stepsDone) / CGFloat(t.steps.count)) } }
+                            .padding(.top, 10).padding(.bottom, 4)
                         ForEach(Array(t.steps.enumerated()), id: \.element.id) { i, x in
+                            if i > 0 { RowSep() }
                             HStack(spacing: 12) {
-                                Button { withAnimation(.snappy) { store.toggleStep(id, i) } } label: {
-                                    Image(systemName: x.done ? "checkmark.circle.fill" : "circle").font(.system(size: 22))
-                                        .foregroundStyle(x.done ? Color.shoalBlue : Color(hex: 0xb7bcc4))
-                                }
-                                .accessibilityLabel(x.done ? "Mark \(x.n) not done" : "Mark \(x.n) done")
+                                Button { withAnimation(.snappy) { store.toggleStep(id, i) } } label: { CheckBox(on: x.done).frame(width: 44, height: 44).contentShape(.rect) }
+                                    .buttonStyle(.plain).padding(.horizontal, -10)
+                                    .accessibilityLabel(x.done ? "Mark \(x.n) not done" : "Mark \(x.n) done")
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(x.n).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.ink).strikethrough(x.done, color: .muted)
-                                    Text(stepLine(x)).font(.meta).foregroundStyle(x.ask != nil ? Color.shoalBlue : Color.muted)
+                                    Text(x.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                                    Text(stepLine(x)).font(.app(13)).foregroundStyle(Color.muted)
                                 }
                                 Spacer()
                                 if let w = x.who, w != "you" { Avatar(p: store.person(w), size: 22) }
@@ -82,9 +85,10 @@ struct TaskView: View {
                                     Menu {
                                         Button("I'll take it") { store.takeStep(id, i) }
                                         Button("Ask someone") { store.go(.handoff(id, step: i)) }
-                                    } label: { Text("Take step").font(.system(size: 14, weight: .semibold)) }
+                                    } label: { Text("Take step").font(.app(13, .semibold)).foregroundStyle(Color.shoalBlue) }
                                 }
                             }
+                            .padding(.vertical, 8)
                         }
                     }
                     .glassCard()
@@ -96,8 +100,12 @@ struct TaskView: View {
                 if !t.notes.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Eyebrow(text: "Notes")
-                        Text(t.notes).font(.body15).foregroundStyle(Color.ink).lineSpacing(3)
-                        Text("Added by you").font(.meta).foregroundStyle(Color.muted)
+                        Text(glossed(t.notes)).font(.app(16)).foregroundStyle(Color.ink).lineSpacing(4).tint(Color.ink)
+                            .environment(\.openURL, OpenURLAction { u in
+                                if let k = u.host(), TERMS[k] != nil { term = k }
+                                return .handled
+                            })
+                        Text("Added by you\(store.pebbleOn && hasTerm(t.notes) ? " · tap an underlined word to explain it" : "")").font(.app(13)).foregroundStyle(Color.muted)
                     }
                     .glassCard()
                 }
@@ -112,6 +120,33 @@ struct TaskView: View {
                 }
             }
             .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { store.back() } label: {
+                        Image(systemName: "arrow.left").font(.system(size: 16, weight: .medium)).foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Back")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(t.kind == .once ? "Change due date" : "Change days", systemImage: "calendar") { dateSheet = true }
+                        if store.kit == true {
+                            if let s = store.stoneOf(id) {
+                                Button("Find its stone", systemImage: "dot.radiowaves.left.and.right") { store.say("\(s.label) is blinking") }
+                            } else {
+                                Button("Link a real stone", systemImage: "link") { store.go(.kit) }
+                            }
+                        }
+                        Button("Hand off", systemImage: "arrow.left.arrow.right") { store.go(.handoff(id, step: nil)) }
+                    } label: {
+                        Text("•••").font(.app(15, .semibold)).foregroundStyle(Color.muted).frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel("More")
+                }
+            }
+            .sheet(item: Binding(get: { term.map { TermID(id: $0) } }, set: { term = $0?.id })) { k in TermSheet(key: k.id) }
+            .sheet(isPresented: $dateSheet) { DateSheet(id: id) }
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 10) {
                     if t.done {
@@ -131,9 +166,9 @@ struct TaskView: View {
 
     private func stoneLine(_ t: CareTask) -> String {
         switch t.state {
-        case .urgent: "Stone glows yellow · due soon"
+        case .urgent: "Stone glows yellow"
         case .progress: "Stone glows ice blue"
-        case .open: "Stone glows white for whoever is free"
+        case .open: "Stone glows white"
         case .done: "Done · stone resting"
         }
     }
@@ -157,7 +192,7 @@ struct SizeSheet: View {
                     HStack(spacing: 14) {
                         Stone(state: .open, w: x, base: 30).frame(width: 44)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(x.label).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(x.label).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
                             Text(x.hint).font(.meta).foregroundStyle(Color.muted)
                         }
                         Spacer()
@@ -170,5 +205,118 @@ struct SizeSheet: View {
         }
         .padding(24)
         .presentationDetents([.height(360)])
+    }
+}
+
+// A square tick box, filled blue when done.
+struct CheckBox: View {
+    var on: Bool
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(on ? Color.shoalBlue : .white.opacity(0.8))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(on ? .clear : Color(hex: 0xb7bcc4), lineWidth: 1.5))
+            .overlay { if on { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white) } }
+            .frame(width: 24, height: 24)
+    }
+}
+
+// Words Pebble can explain in plain language, with where the explanation comes from.
+// Pebble explains words. It never says when or how much.
+let TERMS: [String: (term: String, def: String, src: String, med: Bool)] = [
+    "prn": ("PRN", "It means “as needed.” A PRN medicine isn't on a schedule. It's there if it's needed, for example if pain or breathing gets harder at night.", "MedlinePlus, U.S. National Library of Medicine", true),
+    "hospice": ("Hospice", "Care that focuses on comfort and quality of life when a cure is no longer the goal. A team of nurses, aides, social workers and chaplains supports the person and the family, usually at home.", "MedlinePlus, U.S. National Library of Medicine", false),
+    "palliative": ("Palliative care", "Care that eases symptoms and stress during a serious illness. It can happen alongside treatment, at any stage.", "MedlinePlus, U.S. National Library of Medicine", false),
+    "respite": ("Respite care", "Short-term care that gives a family caregiver a break, for a few hours or a few days.", "National Institute on Aging", false),
+    "polst": ("POLST", "A medical order, signed by a doctor and the patient, that says what treatments the person wants in an emergency. It travels with them.", "National POLST", false),
+    "dnr": ("DNR", "Do-not-resuscitate order. It tells medical staff not to do CPR if breathing or the heart stops.", "MedlinePlus, U.S. National Library of Medicine", false),
+    "ihss": ("IHSS", "In-Home Supportive Services, a California program that pays for help at home for people on Medi-Cal.", "California Department of Social Services", false),
+]
+private let TERM_RX = try! NSRegularExpression(pattern: "\\b(PRN|hospice|palliative care|palliative|respite care|respite|POLST|DNR|IHSS)\\b", options: .caseInsensitive)
+struct TermID: Identifiable { let id: String }
+
+func hasTerm(_ s: String) -> Bool { TERM_RX.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil }
+
+extension TaskView {
+    // Known words become underlined links; matching is local, nothing reads the note.
+    func glossed(_ s: String) -> AttributedString {
+        var out = AttributedString(s)
+        guard store.pebbleOn else { return out }
+        for m in TERM_RX.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() {
+            guard let r = Range(m.range, in: s), let ar = Range(r, in: out) else { continue }
+            let key = s[r].lowercased().split(separator: " ")[0]
+            out[ar].link = URL(string: "term://\(key)")
+            out[ar].underlineStyle = .single
+            out[ar].underlineColor = UIColor(Color.shoalBlue)
+        }
+        return out
+    }
+}
+
+struct TermSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    var key: String
+    var body: some View {
+        if let x = TERMS[key] {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Image("pebble_think_01").resizable().scaledToFit().frame(width: 44, height: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Eyebrow(text: "In plain words")
+                        Text(x.term).font(.title(24)).foregroundStyle(Color.navy)
+                    }
+                }
+                Text(x.def).font(.app(16)).foregroundStyle(Color.ink).lineSpacing(3)
+                Text("Source: \(x.src)").font(.app(13)).foregroundStyle(Color.muted)
+                if x.med {
+                    (Text("I can explain words. ") + Text("When and how much").font(.app(13, .semibold)) + Text(" is a question for \(LOVED)'s hospice nurse."))
+                        .font(.app(13)).foregroundStyle(Color.muted).glassCard(radius: 16, padding: 12)
+                }
+                HStack(spacing: 10) {
+                    if x.med {
+                        Button("Ask the nurse") { dismiss(); store.say("Saved a question about \(x.term) for the nurse's next visit") }.buttonStyle(GhostButton())
+                    }
+                    Button("Got it") { dismiss() }.buttonStyle(GhostButton())
+                }
+                .padding(.top, 4)
+            }
+            .padding(24)
+            .presentationDetents([.medium])
+        }
+    }
+}
+
+// Change a one-time task's due date, or an ongoing task's days.
+struct DateSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    var id: String
+    var body: some View {
+        if let i = store.idx(id) {
+            @Bindable var store = store
+            VStack(alignment: .leading, spacing: 14) {
+                Text(store.tasks[i].kind == .once ? "Due date" : "Which days").font(.title(26)).foregroundStyle(Color.navy)
+                if store.tasks[i].kind == .once {
+                    DatePicker("Due", selection: $store.tasks[i].date, displayedComponents: .date).datePickerStyle(.graphical).tint(.shoalBlue)
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(DAYS, id: \.self) { d in
+                            let on = store.tasks[i].days.contains(d)
+                            Button {
+                                if on { store.tasks[i].days.removeAll { $0 == d } } else { store.tasks[i].days.append(d) }
+                            } label: {
+                                Text(String(d.prefix(2))).font(.app(14, .semibold)).foregroundStyle(on ? .white : Color.ink)
+                                    .frame(maxWidth: .infinity).frame(height: 40)
+                                    .background(on ? Color.shoalBlue : .white.opacity(0.8), in: .rect(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                Button("Done") { dismiss() }.buttonStyle(PrimaryButton())
+            }
+            .padding(24)
+            .presentationDetents(store.tasks[i].kind == .once ? [.large] : [.height(240)])
+        }
     }
 }

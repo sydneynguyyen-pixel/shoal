@@ -129,22 +129,25 @@ let DEMO_PEOPLE: [Person] = [
     Person(id: "bill", name: "Bill", img: "avatar-bill", tier: .main, cap: 6, about: "Free evenings · 10 min away",
            best: "After 6 PM", reach: "Text", contact: "(408) 555-0179",
            know: ["Bad back, so no heavy lifting", "Has the truck, good for big pickups", "Works days, can't take calls till lunch"]),
+    // Sam was invited by text and hasn't joined yet, so Sam shows as Pending.
     Person(id: "sam", name: "Sam", img: "avatar-sam", tier: .main, cap: 3, about: "Helps from Portland", remote: true,
            best: "Weekends", reach: "Text", contact: "(503) 555-0188",
-           know: ["Great with insurance and forms", "Visiting Thanksgiving week", "Can make calls on work breaks"]),
+           know: ["Great with insurance and forms", "Visiting Thanksgiving week", "Can make calls on work breaks"], invited: true),
     Person(id: "nora", name: "Nora", img: "avatar-nora", tier: .trusted, cap: 2, about: "Neighbor",
            best: "Weekdays", reach: "Text", contact: "(408) 555-0115",
            know: ["Has a spare key", "Can check in if no one answers"]),
+    Person(id: "leo", name: "Leo", img: nil, tier: .kid, cap: 2, about: "Dad's grandson, 14"),
 ]
 
 func demoTasks() -> [CareTask] {
     var n = 0
     func mk(_ name: String, _ who: String?, _ w: Int, _ cat: String, days: [String]? = nil, due: Int = 0,
-            done: Bool = false, doneAt: String? = nil, notes: String = "", steps: [Step] = [], remote: Bool = false, why: String = "") -> CareTask {
+            done: Bool = false, doneAt: String? = nil, notes: String = "", steps: [Step] = [], remote: Bool = false, why: String = "", kid: Bool = false) -> CareTask {
         defer { n += 1 }
         return CareTask(id: "d\(n)", n: name, who: who, w: Weight(rawValue: w)!, cat: cat,
                         kind: days == nil ? .once : .repeating, days: days ?? [], date: days == nil ? addDays(due) : addDays(3),
-                        done: done, doneAt: doneAt, steps: steps, notes: notes, remote: remote, why: why)
+                        done: done, doneAt: doneAt, steps: steps, notes: notes, remote: remote, why: why,
+                        open: kid ? [.main, .trusted, .kid] : nil)
     }
     let l = LOVED
     return [
@@ -178,5 +181,11 @@ func demoTasks() -> [CareTask] {
         mk("Bring in the mail", "nora", 1, "there", days: ["Mon", "Thu"]),
         mk("Be there for the nurse visit", nil, 2, "there", due: 2),
         mk("Mow the lawn", nil, 2, "there", days: ["Sat"]),
+        // Small jobs for the trusted circle and kid tasks for Leo.
+        mk("Drop off a library book", nil, 1, "drive", due: 3),
+        mk("Walk the dog after lunch", nil, 1, "there", days: ["Wed"], kid: true),
+        mk("Read the paper to \(l)", "leo", 1, "there", days: ["Tue", "Sat"], kid: true),
+        mk("Water the plants", "leo", 1, "there", days: ["Wed"], kid: true),
+        mk("Make a card for \(l)", nil, 1, "there", due: 4, kid: true),
     ]
 }

@@ -13,5 +13,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Figtree.ttf</string>
+		<string>Fraunces.ttf</string>
+	</array>
 </dict>
 </plist>

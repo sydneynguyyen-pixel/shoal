@@ -37,13 +37,13 @@ struct RootView: View {
     private var tabs: some View {
         @Bindable var store = store
         return TabView(selection: $store.tab) {
-            Tab("Home", systemImage: "house", value: 0) { stack(0) { HomeView() } }
+            Tab("Home", image: "tab-home", value: 0) { stack(0) { HomeView() } }
             Tab("My jar", image: "tab-jar", value: 1) { stack(1) { MyJarView() } }
-            Tab("People", systemImage: "person.2", value: 2) { stack(2) { PeopleView() } }
+            Tab("People", image: "tab-people", value: 2) { stack(2) { PeopleView() } }
             if store.pebbleOn {
-                Tab("Pebble", systemImage: "sparkles", value: 3) { stack(3) { PebbleView() } }
+                Tab("Pebble", image: "tab-pebble", value: 3) { stack(3) { PebbleView() } }
             }
-            Tab("Settings", systemImage: "gearshape", value: 4) { stack(4) { SettingsView() } }
+            Tab("Settings", image: "tab-settings", value: 4) { stack(4) { SettingsView() } }
         }
         .overlay(alignment: .top) {
             if let t = store.toast { ToastView(text: t).padding(.top, 4) }
@@ -86,18 +86,24 @@ struct Page<Content: View>: View {
 }
 
 // One task in a list: its stone, name and who/when.
+// The thin line between rows, as on the web.
+struct RowSep: View {
+    var body: some View { Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(height: 1) }
+}
+
 struct TaskLine: View {
     @Environment(Store.self) private var store
     var t: CareTask
     var showWho = true
     var meta: String? = nil
+    var action: (() -> Void)? = nil   // replaces opening the task, e.g. to pair it
 
     var body: some View {
-        Button { store.go(.task(t.id)) } label: {
-            HStack(spacing: 14) {
+        Button { if let action { action() } else { store.go(.task(t.id)) } } label: {
+            HStack(spacing: 12) {
                 t.stone(base: 28).frame(width: 40)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(t.n).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(t.done ? Color.muted : Color.ink)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t.n).font(.app(15, .semibold)).foregroundStyle(t.done ? Color.muted : Color.ink)
                         .strikethrough(t.done, color: .muted).multilineTextAlignment(.leading)
                     HStack(spacing: 5) {
                         if showWho, let p = store.person(t.who) { Avatar(p: p, size: 16) }
@@ -106,12 +112,11 @@ struct TaskLine: View {
                 }
                 Spacer(minLength: 4)
                 if t.handoff?.pending == true {
-                    Text("Asked").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.shoalBlue)
+                    Text("Asked").font(.app(12, .semibold)).foregroundStyle(Color.shoalBlue)
                         .padding(.horizontal, 8).padding(.vertical, 3).background(Color.blueTint, in: .capsule)
                 }
-                Chevron()
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 11).frame(minHeight: 60).contentShape(.rect)
         }
         .buttonStyle(Pressable())
         .accessibilityElement(children: .combine)

@@ -31,7 +31,7 @@ struct HandoffView: View {
                 HStack(spacing: 14) {
                     t.stone(base: 28).frame(width: 40)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(t.n).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+                        Text(t.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
                         Text("\(t.who == nil ? "Unassigned" : store.name(t.who)) · \(t.dueLabel)").font(.meta).foregroundStyle(Color.muted)
                     }
                     Spacer()
@@ -41,10 +41,10 @@ struct HandoffView: View {
                 if let pick {
                     HStack(spacing: 10) {
                         Image("pebble_offer_open_hands").resizable().scaledToFit().frame(width: 30, height: 30)
-                        (Text(pick.p.name).bold() + Text(" has \(pick.why).")).font(.system(size: 14)).foregroundStyle(Color.ink)
+                        (Text(pick.p.name).bold() + Text(" has \(pick.why).")).font(.app(14)).foregroundStyle(Color.ink)
                         Spacer()
                         if !picked.contains(pick.p.id) {
-                            Button("Ask \(pick.p.name)") { picked = [pick.p.id]; unassigned = false }.font(.system(size: 14, weight: .semibold))
+                            Button("Ask \(pick.p.name)") { picked = [pick.p.id]; unassigned = false }.font(.app(14, .semibold))
                         }
                     }
                     .pearl(radius: 16, padding: 12)
@@ -84,7 +84,7 @@ struct HandoffView: View {
                 .glassCard(padding: 8)
 
                 HStack {
-                    (Text("Note ").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.sectionInk) + Text("optional").font(.meta).foregroundStyle(Color.muted))
+                    (Text("Note ").font(.app(14, .semibold)).foregroundStyle(Color.sectionInk) + Text("optional").font(.meta).foregroundStyle(Color.muted))
                     Spacer()
                     if store.pebbleOn && !byPebble {
                         PearlChip(label: "Write it for me") { note = store.pebbleNote(t, step: s?.n); byPebble = true }
@@ -96,7 +96,7 @@ struct HandoffView: View {
                     .padding(14)
                     .background(.white.opacity(0.85), in: .rect(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: 0xdde1e6)))
-                if byPebble { Text("Pebble wrote this. It names the task and the date, never health details.").font(.system(size: 12)).foregroundStyle(Color.pearlInk) }
+                if byPebble { Text("Pebble wrote this. It names the task and the date, never health details.").font(.app(12)).foregroundStyle(Color.pearlInk) }
 
                 if let target {
                     Text(target.tier == .main && !target.remote ? "\(target.name) gets it in the app." : "We'll text \(target.name).").font(.meta).foregroundStyle(Color.muted)
@@ -136,7 +136,7 @@ struct HandoffView: View {
 
     private func label2(_ a: String, _ b: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(a).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(Color.ink)
+            Text(a).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
             Text(b).font(.meta).foregroundStyle(Color.muted)
         }
     }
