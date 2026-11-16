@@ -31,7 +31,7 @@ struct TaskView: View {
                 HStack(spacing: 6) {
                     Badge(text: t.kind == .once ? "One-time" : "Ongoing")
                     Button { sizeSheet = true } label: { Badge(text: t.w.label) }.accessibilityLabel("Size: \(t.w.label). Change size")
-                    Badge(text: t.kind == .once ? "Due \(fmtDate(t.date))" : repeatLabel(t.days), amber: t.urgent)
+                    Badge(text: (t.kind == .once ? "Due \(fmtDate(t.date))" : repeatLabel(t.days)) + (t.time.isEmpty ? "" : " · \(fmtTime(t.time))"), amber: t.urgent)
                     if t.remote { Badge(text: "Remote OK") }
                 }
                 Text(t.n).font(.title()).foregroundStyle(Color.navy).padding(.bottom, 2)
@@ -49,19 +49,7 @@ struct TaskView: View {
                 }
                 .glassCard()
 
-                if let h = t.handoff {
-                    HStack(spacing: 12) {
-                        Avatar(p: store.person(h.to.first), size: 32)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(h.pending ? "Waiting on \(h.to.map { store.name($0) }.joined(separator: ", "))" : "\(store.name(t.who)) said yes")
-                                .font(.app(15, .semibold)).foregroundStyle(Color.ink)
-                            if !h.note.isEmpty { Text("“\(h.note)”").font(.meta).foregroundStyle(Color.muted).lineLimit(2) }
-                        }
-                        Spacer()
-                        if h.pending { ProgressView().controlSize(.small) } else { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.shoalBlue) }
-                    }
-                    .glassCard(radius: 18, padding: 14)
-                }
+                if let h = t.handoff { handoffCard(t, h) }
 
                 if !t.steps.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
@@ -173,38 +161,105 @@ struct TaskView: View {
         }
     }
 
+    // Who it went to, and how it went. Everyone can see it.
+    private func handoffCard(_ t: CareTask, _ h: Handoff) -> some View {
+        let many = h.to.count > 1
+        let to = store.person(h.who)
+        let name = to?.name ?? "Someone"
+        let title: String, sub: String
+        switch h.status {
+        case .pending:
+            title = many ? (h.all ? "Asked everyone who can" : "Asked \(store.names(h.to))") : "Waiting on \(name)"
+            sub = many ? "The first to say yes takes it. Everyone can see it's being handed off." : "Everyone can see it's being handed off."
+        case .accepted:
+            title = "\(name) said yes"
+            sub = "\(h.when) · it's in \(name)'s jar now\(many ? ". The others were told it's covered." : "")"
+        case .declined:
+            title = "\(name) can't take it"
+            sub = "“\(h.why)”"
+        }
+        return HStack(spacing: 12) {
+            if h.pending && many {
+                HStack(spacing: -10) { ForEach(h.to.prefix(3), id: \.self) { Avatar(p: store.person($0), size: 24) } }
+            } else {
+                Avatar(p: to, size: 36)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                Text(sub).font(.meta).foregroundStyle(Color.muted)
+            }
+            Spacer(minLength: 4)
+            switch h.status {
+            case .pending: Button("Cancel") { store.cancelHandoff(t.id) }.font(.app(14, .semibold)).foregroundStyle(Color.shoalBlue)
+            case .declined: Button("Ask someone else") { store.go(.handoff(t.id, step: nil)) }
+                .font(.app(13.5, .semibold)).foregroundStyle(Color.ink)
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, 12).frame(height: 32)
+                .background(.white.opacity(0.85), in: .capsule).overlay(Capsule().strokeBorder(.white))
+                .buttonStyle(Pressable())
+            case .accepted: EmptyView()
+            }
+        }
+        .glassCard(radius: 18, padding: 14)
+    }
+
     private func stepLine(_ x: Step) -> String {
-        if let ask = x.ask { return "Asked \(store.name(ask))" }
+        if let ask = x.ask { return "Asked \(store.names(ask))" }
         guard let w = x.who else { return "Open" }
         return x.done ? "\(store.name(w)) · \(x.when ?? "Today")" : "\(store.name(w)) is on it"
     }
 }
 
 struct SizeSheet: View {
+    @Environment(Store.self) private var store
     @Binding var w: Weight
+    var pick: Weight? = nil      // Pebble's guess, tagged so people can see it
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Stone size").font(.title(26)).foregroundStyle(Color.navy)
-            Text("Bigger stone, bigger job.").font(.meta).foregroundStyle(Color.muted)
-            ForEach(Weight.allCases) { x in
-                Button { w = x; dismiss() } label: {
-                    HStack(spacing: 14) {
-                        Stone(state: .open, w: x, base: 30).frame(width: 44)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(x.label).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                            Text(x.hint).font(.meta).foregroundStyle(Color.muted)
+            Text("How big is this task?").font(.title(26)).foregroundStyle(Color.navy)
+            Text("Bigger tasks get bigger stones, so everyone can see who's carrying what.").font(.meta).foregroundStyle(Color.muted)
+            VStack(spacing: 8) {
+                ForEach(Weight.allCases) { x in
+                    Button { w = x; dismiss() } label: {
+                        HStack(spacing: 14) {
+                            Stone(state: .open, w: x, base: 30).frame(width: 44)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 8) {
+                                    Text(x.label).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                                    if store.pebbleOn && pick == x {
+                                        Text("Pebble's pick").font(.app(11.5, .semibold)).foregroundStyle(Color.shoalBlue)
+                                            .padding(.horizontal, 7).padding(.vertical, 2).background(Color.blueTint, in: .rect(cornerRadius: 8))
+                                    }
+                                }
+                                Text(x.hint).font(.meta).foregroundStyle(Color.muted)
+                            }
+                            Spacer()
+                            if w == x { CheckDot() }
                         }
-                        Spacer()
-                        if w == x { Image(systemName: "checkmark").foregroundStyle(Color.shoalBlue).fontWeight(.semibold) }
+                        .padding(.horizontal, 14).frame(minHeight: 64)
+                        .background(.white, in: .rect(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(w == x ? Color.navy : Color(hex: 0x6e737c, 0.16), lineWidth: 1.5))
                     }
-                    .padding(12).background(w == x ? Color.blueTint : .clear, in: .rect(cornerRadius: 14))
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(w == x ? .isSelected : [])
                 }
-                .buttonStyle(.plain)
+            }
+            .padding(.top, 2)
+            if store.kit == true {
+                Text("Your home kit has small, medium and large stones to match.").font(.meta).foregroundStyle(Color.muted).frame(maxWidth: .infinity)
             }
         }
         .padding(24)
-        .presentationDetents([.height(360)])
+        .presentationDetents([.height(store.kit == true ? 420 : 390)])
+    }
+}
+
+// A filled blue circle with a tick, for the one picked option.
+struct CheckDot: View {
+    var body: some View {
+        Circle().fill(Color.shoalBlue).frame(width: 24, height: 24)
+            .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white))
     }
 }
 
@@ -289,34 +344,108 @@ struct TermSheet: View {
 // Change a one-time task's due date, or an ongoing task's days.
 struct DateSheet: View {
     @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
     var id: String
     var body: some View {
         if let i = store.idx(id) {
             @Bindable var store = store
-            VStack(alignment: .leading, spacing: 14) {
-                Text(store.tasks[i].kind == .once ? "Due date" : "Which days").font(.title(26)).foregroundStyle(Color.navy)
-                if store.tasks[i].kind == .once {
-                    DatePicker("Due", selection: $store.tasks[i].date, displayedComponents: .date).datePickerStyle(.graphical).tint(.shoalBlue)
-                } else {
-                    HStack(spacing: 6) {
-                        ForEach(DAYS, id: \.self) { d in
-                            let on = store.tasks[i].days.contains(d)
-                            Button {
-                                if on { store.tasks[i].days.removeAll { $0 == d } } else { store.tasks[i].days.append(d) }
-                            } label: {
-                                Text(String(d.prefix(2))).font(.app(14, .semibold)).foregroundStyle(on ? .white : Color.ink)
-                                    .frame(maxWidth: .infinity).frame(height: 40)
-                                    .background(on ? Color.shoalBlue : .white.opacity(0.8), in: .rect(cornerRadius: 12))
-                            }
-                            .buttonStyle(.plain)
+            WhenSheet(title: store.tasks[i].n, kind: $store.tasks[i].kind, days: $store.tasks[i].days,
+                      date: $store.tasks[i].date, time: $store.tasks[i].time)
+        }
+    }
+}
+
+// When a task happens: repeats on some days, once by a date, or as needed. Same sheet as the web.
+struct WhenSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    var title: String
+    @Binding var kind: Kind
+    @Binding var days: [String]
+    @Binding var date: Date
+    @Binding var time: String
+
+    private enum How: String, CaseIterable { case repeating = "Repeats", once = "One time", needed = "As needed" }
+    private var how: How { kind == .once ? .once : days.isEmpty ? .needed : .repeating }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title.isEmpty ? "New task" : title).font(.title(24)).foregroundStyle(Color.navy).padding(.bottom, 14)
+                Picker("How", selection: Binding(get: { how }, set: { h in
+                    if h == .once { kind = .once } else { kind = .repeating; days = h == .needed ? [] : days.isEmpty ? ["Sat"] : days }
+                })) { ForEach(How.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
+                .pickerStyle(.segmented)
+
+                switch how {
+                case .once:
+                    label("Due by")
+                    HStack(spacing: 8) {
+                        ForEach([("Today", addDays(0)), ("Tomorrow", addDays(1)), ("This week", byFriday())], id: \.0) { l, d in
+                            chip(l, on: Calendar.current.isDate(date, inSameDayAs: d)) { date = d }
                         }
                     }
+                    DatePicker("Due", selection: $date, in: TODAY..., displayedComponents: .date)
+                        .datePickerStyle(.graphical).labelsHidden().tint(.shoalBlue)
+                case .repeating:
+                    HStack {
+                        label("Which days?")
+                        Button(days.count == 7 ? "Just one day" : "Every day") { days = days.count == 7 ? ["Mon"] : DAYS }
+                            .font(.app(13, .semibold)).foregroundStyle(Color.shoalBlue).padding(.top, 16)
+                    }
+                    HStack(spacing: 6) {
+                        ForEach(DAYS, id: \.self) { d in
+                            let on = days.contains(d)
+                            Button {
+                                if !on { days.append(d) } else if days.count > 1 { days.removeAll { $0 == d } } else { store.say("Pick at least one day") }
+                            } label: {
+                                VStack(spacing: 1) {
+                                    Text(String(d.prefix(1))).font(.app(15, .semibold))
+                                    Text(d).font(.app(10, .medium)).foregroundStyle(on ? .white.opacity(0.8) : Color.muted)
+                                }
+                                .foregroundStyle(on ? .white : Color.ink)
+                                .frame(maxWidth: .infinity).frame(height: 52)
+                                .background(on ? Color.shoalBlue : .white.opacity(0.6), in: .rect(cornerRadius: 14))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(DAY_FULL[d]!).accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                    .padding(.top, 8)
+                case .needed:
+                    Text("It won't go on the calendar. Whoever has it does it when it comes up, like a doctor calling to book a visit.")
+                        .font(.meta).foregroundStyle(Color.muted).padding(.top, 14)
                 }
-                Button("Done") { dismiss() }.buttonStyle(PrimaryButton())
+
+                if how != .needed {
+                    (Text("Time ") + Text("Optional").font(.app(12)).foregroundStyle(Color.muted)).modifier(LabelStyle())
+                    HStack(spacing: 8) {
+                        chip("Any time", on: time.isEmpty) { time = "" }
+                        DatePicker("Time", selection: Binding(get: { timeDate(time) }, set: { time = timeString($0) }), displayedComponents: .hourAndMinute)
+                            .labelsHidden().tint(.shoalBlue)
+                            .opacity(time.isEmpty ? 0.6 : 1)
+                    }
+                    .padding(.top, 8)
+                }
+
+                Button("Done") { dismiss() }.buttonStyle(PrimaryButton()).padding(.top, 20)
             }
             .padding(24)
-            .presentationDetents(store.tasks[i].kind == .once ? [.large] : [.height(240)])
         }
+        .scrollBounceBehavior(.basedOnSize)
+        .presentationDetents(how == .once ? [.large] : [.height(how == .needed ? 270 : 390)])
+    }
+
+    private func label(_ s: String) -> some View { Text(s).modifier(LabelStyle()) }
+    private struct LabelStyle: ViewModifier {
+        func body(content: Content) -> some View { content.font(.app(14, .semibold)).foregroundStyle(Color.sectionInk).padding(.top, 16) }
+    }
+    private func chip(_ l: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(l).font(.app(13.5, .semibold)).padding(.horizontal, 14).frame(height: 36)
+                .foregroundStyle(on ? Color.shoalBlue : Color.ink)
+                .background(on ? Color.blueTint : .white.opacity(0.9), in: .capsule)
+                .overlay(Capsule().strokeBorder(on ? Color.shoalBlue.opacity(0.5) : Color(hex: 0xdde1e6)))
+        }
+        .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
     }
 }

@@ -35,10 +35,10 @@ struct CareNote: Identifiable, Hashable {
 enum CareSection: String { case key, needs, prefs }
 
 func demoMeds() -> [Med] {[
-    Med(id: "morphine", name: "Morphine", amt: "5 mg", how: "0.25 mL under the tongue", why: "For pain or hard breathing", prn: true, every: 4),
-    Med(id: "lorazepam", name: "Lorazepam", amt: "0.5 mg", how: "1 tablet, dissolved under the tongue", why: "For anxiety or restlessness", prn: true, every: 6),
-    Med(id: "metoprolol", name: "Metoprolol", amt: "25 mg", how: "1 tablet with breakfast", why: "For his heart", prn: false, time: "8 AM"),
-    Med(id: "senna", name: "Senna", amt: "2 tablets", how: "With water at bedtime", why: "Morphine can cause constipation", prn: false, time: "9 PM"),
+    Med(id: "morphine", name: "Morphine", amt: "5 mg", how: "0.25 mL under the tongue", why: "for pain or hard breathing", prn: true, every: 4),
+    Med(id: "lorazepam", name: "Lorazepam", amt: "0.5 mg", how: "1 tablet, dissolved under the tongue", why: "for anxiety or restlessness", prn: true, every: 6),
+    Med(id: "metoprolol", name: "Metoprolol", amt: "25 mg", how: "1 tablet with breakfast", why: "for his heart", prn: false, time: "8 AM"),
+    Med(id: "senna", name: "Senna", amt: "2 tablets", how: "With water at bedtime", why: "morphine can cause constipation", prn: false, time: "9 PM"),
 ]}
 
 func demoDoses() -> [Dose] {
@@ -54,23 +54,33 @@ func demoDoses() -> [Dose] {
 
 func demoKey() -> [CareNote] {[
     CareNote(t: "Allergies", body: "Penicillin (hives). Codeine makes him sick to his stomach.", short: "Penicillin, codeine", alert: true),
-    CareNote(t: "Wishes", body: "Comfort care only. Dad doesn't want CPR (DNR). The signed form is on the fridge.", short: "DNR · comfort care only"),
-    CareNote(t: "Pharmacy", body: "CVS on Saratoga Ave · (408) 555-0110. Hospice delivers the comfort kit.", by: "you", on: "Oct 2"),
+    CareNote(t: "Wishes", body: "Comfort care only. \(LOVED) doesn't want CPR (DNR). The signed form is on the fridge.", short: "DNR · comfort care only"),
+    CareNote(t: "Pharmacy", body: "CVS on Saratoga Ave · (408) 555-0110. Hospice delivers the comfort kit.", short: "CVS, Saratoga Ave", by: "you", on: "Oct 2"),
 ]}
 
 func demoNeeds() -> [CareNote] {[
-    CareNote(t: "Moving", body: "Needs two people to get out of bed. The gait belt is in the hall closet.", short: "Two people to get up"),
-    CareNote(t: "Eating and drinking", body: "Soft foods, small bites. Thickened water only, small sips.", short: "Soft food, thick water"),
-    CareNote(t: "Skin", body: "Turn him every 2 to 3 hours. Lotion on his heels and elbows.", by: "bill"),
-    CareNote(t: "Bathroom", body: "Wears briefs. Supplies are under the bathroom sink."),
+    CareNote(t: "Moving", body: "Needs two people to get out of bed. The gait belt is in the hall closet.", short: "Two people to get up", on: "Mon"),
+    CareNote(t: "Eating and drinking", body: "Soft foods, small bites. Thickened water only, small sips.", short: "Soft food, thick water", on: "Tue"),
+    CareNote(t: "Skin", body: "Turn him every 2 to 3 hours. Lotion on his heels and elbows.", short: "Turn every 2 to 3 hours", by: "bill", on: "Sun"),
+    CareNote(t: "Bathroom", body: "Wears briefs. Supplies are under the bathroom sink.", short: "Briefs, under the sink"),
 ]}
 
 func demoPrefs() -> [CareNote] {[
-    CareNote(t: "Likes", body: "Jazz on the radio, the window open a crack, cold ginger ale.", by: "sam"),
-    CareNote(t: "Doesn't like", body: "Loud TV. Being rushed in the morning."),
-    CareNote(t: "Comfort", body: "A cool cloth on his forehead. Someone holding his hand."),
-    CareNote(t: "Visits", body: "Sam's video call at 7 PM. Pastor Jim on Sundays after church.", by: "you", on: "Oct 2"),
+    CareNote(t: "Likes", body: "Jazz on the radio, the window open a crack, cold ginger ale.", short: "Jazz, ginger ale", by: "sam", on: "Sat"),
+    CareNote(t: "Doesn't like", body: "Loud TV. Being rushed in the morning.", short: "Loud TV, rushing", on: "Mon"),
+    CareNote(t: "Comfort", body: "A cool cloth on his forehead. Someone holding his hand.", short: "Cool cloth, hand held", on: "Tue"),
+    CareNote(t: "Visits", body: "Sam's video call at 7 PM. Pastor Jim on Sundays after church.", short: "Sam 7 PM, Pastor Sun", by: "you", on: "Oct 4"),
 ]}
+
+// The short summary on a tile: the note's own, or its first sentence.
+extension CareNote {
+    var summary: String { short.isEmpty ? String(body.split(whereSeparator: { ".·".contains($0) }).first ?? "").trimmingCharacters(in: .whitespaces) : short }
+    var icon: String {
+        ["wishes": "doc.text", "pharmacy": "pills", "moving": "figure.walk", "eating and drinking": "cup.and.saucer",
+         "skin": "drop", "bathroom": "bathtub", "likes": "heart", "doesn't like": "nosign", "comfort": "moon",
+         "visits": "calendar"][t.lowercased()] ?? "circle"
+    }
+}
 
 func clock(_ d: Date) -> String { d.formatted(date: .omitted, time: .shortened) }
 
@@ -80,7 +90,7 @@ func ago(_ d: Date) -> String {
     if m < 60 { return "\(m) min ago" }
     let h = m / 60, r = m % 60
     if h >= 24 { return "\(h / 24) day\(h >= 48 ? "s" : "") ago" }
-    return r >= 10 && h < 6 ? "\(h) hr \(r) min ago" : "\(h) hr ago"
+    return r > 0 ? "\(h) hr \(r) min ago" : "\(h) hr ago"
 }
 
 extension Store {
@@ -101,7 +111,7 @@ extension Store {
 
     func lockCare() { careUnlockedAt = nil; say("Locked") }
 
-    var allergies: String { careKey.first { $0.alert }?.short ?? "" }
+    var allergies: String { careKey.first { $0.alert }?.summary ?? "" }
     func med(_ id: String) -> Med? { meds.first { $0.id == id } }
     func lastDose(_ id: String) -> Dose? { doses.filter { $0.med == id }.max { $0.at < $1.at } }
 
@@ -126,7 +136,7 @@ extension Store {
 
     func removeDose(_ d: Dose) {
         doses.removeAll { $0.id == d.id }
-        say("Removed")
+        say("Removed. Everyone sees the change.")
         syncWidgets()
     }
 
@@ -140,6 +150,22 @@ extension Store {
         case .prefs: put(&prefs)
         }
         say("Saved. Everyone sees the change.")
+    }
+
+    func removeNote(_ n: CareNote, in s: CareSection) {
+        switch s {
+        case .key: careKey.removeAll { $0.id == n.id }
+        case .needs: needs.removeAll { $0.id == n.id }
+        case .prefs: prefs.removeAll { $0.id == n.id }
+        }
+        say("Removed")
+    }
+
+    func addMed(name: String, amt: String, how: String, prn: Bool, every: Int, time: String) {
+        let n = name.prefix(1).uppercased() + name.dropFirst()
+        meds.append(Med(id: "m\(Int(Date().timeIntervalSince1970))", name: n, amt: amt, how: how.isEmpty ? "As directed" : how,
+                        why: "added by you", prn: prn, every: prn ? max(1, every) : 0, time: prn ? "" : (time.isEmpty ? "8 AM" : time)))
+        say("\(n) added. Everyone sees it.")
     }
 
     // MARK: widgets and Live Activity

@@ -1,4 +1,6 @@
 import SwiftUI
+import Speech
+import AVFoundation
 
 // MARK: - Listening: turning what someone says into draft changes
 
@@ -147,174 +149,360 @@ extension Store {
     }
 }
 
-// MARK: - Talk it through
+// MARK: - Pebble tab: a chat you can type or talk into
 
-struct TalkView: View {
+// One thing you said and how Pebble answered it.
+struct Exchange: Identifiable {
+    enum Stage { case review, done, sensitive }
+    let id = UUID()
+    var said: String
+    var stage: Stage
+    var props: [Proposal] = []
+    var skipped: [String] = []
+    var done: [(st: StoneState, n: String, m: String)] = []
+    var newId: String?
+}
+
+struct PebbleView: View {
     @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    enum Phase { case listen, review, done, sensitive }
-    @State private var phase = Phase.listen
+    @State private var chat: [Exchange] = []
     @State private var text = ""
-    @State private var props: [Proposal] = []
-    @State private var skipped: [String] = []
-    @State private var done: [(st: StoneState, n: String, m: String)] = []
-    @State private var newId: String?
+    @State private var mic = Listener()
+    @State private var costs = false
+    @State private var log = false
+    @State private var sees = false
     @State private var pairing = false
     @FocusState private var typing: Bool
 
     private var samples: [(String, String)] { [
         ("A busy week", "The hospice nurse said \(LOVED) might need a hospital bed soon. And his refill runs out Friday. I can't do Thursday's visit, I have a work thing."),
-        ("Around the house", "Mom said the stair rail is loose again. We need to call about the hospital bill. I'm honestly wiped out this week."),
+        ("Things around the house", "Mom said the stair rail is loose again. We need to call about the hospital bill. I'm honestly wiped out this week."),
         ("A hard moment", "\(LOVED) is breathing strangely and I can't wake him."),
     ] }
+    private var blank: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) { content }
-                        .padding(20)
-                        .id(phase)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                }
-                .scrollDismissesKeyboard(.interactively)
-                footer.padding(.horizontal, 20).padding(.bottom, 10)
-            }
-            .background(AppBackground())
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
-            .sheet(isPresented: $pairing) { PairSheet().presentationDetents([.medium, .large]) }
-        }
-    }
-
-    private func figure(_ img: String, _ size: CGFloat = 130) -> some View {
-        Image(img).resizable().scaledToFit().frame(width: size, height: size).frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder private var content: some View {
-        switch phase {
-        case .sensitive:
-            figure("pebble_sensitive_01")
-            Text("That sounds really hard.").font(.title(28)).foregroundStyle(Color.navy).frame(maxWidth: .infinity)
-            Text("I can't help with symptoms or medicine. \(LOVED)'s hospice team can, any time of day or night.")
-                .font(.body15).foregroundStyle(Color.muted).multilineTextAlignment(.center).frame(maxWidth: .infinity)
-            Label("Pebble didn't save anything you said. It never contacts hospice on its own. You decide.", systemImage: "lock")
-                .font(.app(13.5)).foregroundStyle(Color.ink).glassCard(padding: 14)
-        case .review:
-            HStack(spacing: 12) {
-                Image("pebble_think_01").resizable().scaledToFit().frame(width: 56, height: 56)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Waiting for your yes").font(.app(12, .semibold)).foregroundStyle(Color(hex: 0x8a5d0c))
-                        .padding(.horizontal, 8).padding(.vertical, 3).background(Color(hex: 0xf6d27c, 0.35), in: .capsule)
-                    Text(props.isEmpty ? "I didn't find anything to add." : "Here's what I'd add. Change anything.").font(.title(22)).foregroundStyle(Color.navy)
-                }
-            }
-            ForEach($props) { $p in
-                Button { if p.kind != .dup { withAnimation(.snappy) { p.on.toggle() } } } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        if p.kind == .dup { Stone(state: .done, w: .small, base: 22).frame(width: 26) }
-                        else { Image(systemName: p.on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(p.on ? Color.shoalBlue : Color.muted) }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(p.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
-                            Text(p.m).font(.meta).foregroundStyle(p.kind == .step || p.kind == .dup ? Color(hex: 0x8a5d0c) : Color.muted)
-                            if let s = p.step { Text("Step: \(s)").font(.meta).foregroundStyle(Color.muted) }
-                        }
-                        .multilineTextAlignment(.leading)
-                        Spacer(minLength: 0)
-                    }
-                    .opacity(p.on || p.kind == .dup ? 1 : 0.5)
-                    .pearl(radius: 16, padding: 12)
-                }
-                .buttonStyle(Pressable())
-                .disabled(p.kind == .dup)
-                .accessibilityAddTraits(p.on ? .isSelected : [])
-            }
-            if let first = skipped.first {
-                HStack(alignment: .top, spacing: 10) {
-                    Image("pebble_peer_down").resizable().scaledToFit().frame(width: 36, height: 36)
-                    (Text("I left \(skipped.count == 1 ? "one thing" : "\(skipped.count) things") out. ").bold()
-                     + Text(skipped.contains { hits(PEB_MEDS, $0) } ? "Anything about medicine or symptoms is a question for \(LOVED)'s hospice nurse. " : "")
-                     + Text("“\(first)”"))
-                        .font(.app(13.5)).foregroundStyle(Color.ink)
-                }
-                .glassCard(padding: 12)
-            }
-            if !props.isEmpty { Text("Tap a card to leave it out.").font(.meta).foregroundStyle(Color.muted) }
-        case .done:
-            figure("pebble_carry_03")
-            Text("Done. Here's where they went.").font(.title(26)).foregroundStyle(Color.navy).frame(maxWidth: .infinity)
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(done.enumerated()), id: \.offset) { _, x in
-                    HStack(spacing: 12) {
-                        Stone(state: x.st, w: .small, base: 22).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(x.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
-                            Text(x.m).font(.meta).foregroundStyle(Color.muted)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).glassCard()
-            Text("Undo anything from What Pebble did.").font(.meta).foregroundStyle(Color.muted).frame(maxWidth: .infinity)
-        case .listen:
-            figure("pebble_base_front", 110)
-            Text("Talk or type").font(.app(12.5, .semibold)).foregroundStyle(Color.muted)
-                .padding(.horizontal, 10).padding(.vertical, 4).background(.white.opacity(0.8), in: .capsule).frame(maxWidth: .infinity)
-            TextField("What's going on? Say it however it comes out.", text: $text, axis: .vertical)
-                .focused($typing)
-                .lineLimit(5...10).font(.body15).padding(14)
-                .background(.white, in: .rect(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: 0xdde1e6)))
-                .accessibilityLabel("Tell Pebble what's going on")
-            Eyebrow(text: "Try a sample", color: .muted)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) { ForEach(samples, id: \.0) { s in PearlChip(label: s.0) { text = s.1 } } }
-            }
-            // Scroll edge to edge so chips slide off the screen, not off a hard line inside the margin.
-            .contentMargins(.horizontal, 20, for: .scrollContent).padding(.horizontal, -20)
-        }
-    }
-
-    @ViewBuilder private var footer: some View {
-        switch phase {
-        case .sensitive:
-            VStack(spacing: 6) {
-                Button("Call hospice") { store.say("In the real app this calls the hospice number the family saved.") }.buttonStyle(PrimaryButton())
-                Button("Go back") { withAnimation(.snappy) { phase = .listen } }.font(.app(15, .semibold)).frame(height: 36)
-            }
-        case .review:
-            let on = props.filter { $0.on && $0.kind != .dup }.count
-            HStack(spacing: 10) {
-                Button("Say a change") { withAnimation(.snappy) { phase = .listen } }.buttonStyle(GhostButton())
-                Button(on == 0 ? "Nothing to add" : on == 1 ? "Yes, add this" : "Yes, add these \(on)") {
-                    if on == 0 { dismiss(); return }
-                    let before = Set(store.tasks.map(\.id))
-                    done = store.commit(props)
-                    newId = store.tasks.first { !before.contains($0.id) && $0.who == "you" }?.id
-                    withAnimation(.snappy) { phase = .done }
-                }
-                .buttonStyle(PrimaryButton())
-            }
-        case .done:
-            if newId != nil && store.kit == true {
-                HStack(spacing: 10) {
-                    Button("Later") { dismiss() }.buttonStyle(GhostButton())
-                    Button("Pair a stone now") { pairing = true }.buttonStyle(PrimaryButton())
-                }
+        VStack(spacing: 0) {
+            header
+            if chat.isEmpty {
+                Spacer()
+                welcome
+                Spacer()
             } else {
-                Button("Done") { dismiss() }.buttonStyle(PrimaryButton())
-            }
-        case .listen:
-            VStack(spacing: 6) {
-                Button("That's everything") {
-                    typing = false
-                    if let r = store.hear(text) { props = r.props; skipped = r.skipped; withAnimation(.snappy) { phase = .review } }
-                    else { withAnimation(.snappy) { phase = .sensitive } }
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            ForEach($chat) { $x in exchange($x, live: x.id == chat.last?.id) }
+                            Color.clear.frame(height: 1).id("end")
+                        }
+                        .padding(.horizontal, 20).padding(.vertical, 12)
+                    }
+                    .scrollIndicators(.hidden)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: chat.count) { withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) } }
+                    .onChange(of: chat.last?.stage) { withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) } }
                 }
-                .buttonStyle(PrimaryButton(enabled: !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Text("Nothing is added until you say yes.").font(.meta).foregroundStyle(Color.muted)
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .background(alignment: .bottom) {
+            ZStack {
+                AppBackground()
+                // The pearl glow behind the samples, only before the first message.
+                if chat.isEmpty {
+                    EllipticalGradient(colors: [Color(hex: 0xd9c8f3, 0.75), Color(hex: 0xf6dccb, 0.55), Color(hex: 0xcfe6f0, 0.35), .clear],
+                                       center: .bottom, startRadiusFraction: 0, endRadiusFraction: 0.75)
+                        .frame(height: 460).frame(maxHeight: .infinity, alignment: .bottom)
+                        .transition(.opacity)
+                }
+            }
+            .ignoresSafeArea()
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: mic.heard) { if mic.on { text = mic.heard } }
+        .sheet(isPresented: $costs) { CostsView() }
+        .sheet(isPresented: $log) { LogView().presentationDetents([.medium]) }
+        .sheet(isPresented: $sees) { SeesView().presentationDetents([.medium]) }
+        .sheet(isPresented: $pairing) { PairSheet().presentationDetents([.medium, .large]) }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image("pebble_base_front").resizable().scaledToFit().frame(width: 32, height: 32)
+            Text("Pebble").font(.title(24)).foregroundStyle(Color.navy)
+            Spacer()
+            Menu {
+                if !chat.isEmpty {
+                    item("New chat", "Clear this chat and start over", "square.and.pencil") { mic.stop(); withAnimation(.snappy) { chat = []; text = "" } }
+                }
+                item("Help with costs", "Programs that may pay for care", "dollarsign.circle") { costs = true }
+                item("What Pebble did", "Everything it added, with Undo", "clock.arrow.circlepath") { log = true }
+                item("What Pebble can see", "Only what you tell it here", "eye") { sees = true }
+                // Quick lookups pop up as sheets; the check-in is a full page, so it sits apart with a ›.
+                Section {
+                    item("Monthly check-in  ›", "How the work was shared this month", "calendar") { store.go(.month) }
+                }
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.ink)
+                    .frame(width: 44, height: 44).glassEffect(.regular.interactive(), in: .circle)
+            }
+            .accessibilityLabel("More")
+        }
+        .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 4)
+    }
+
+    private func item(_ title: String, _ sub: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title); Text(sub); Image(systemName: icon)
+        }
+    }
+
+    private var welcome: some View {
+        VStack(spacing: 10) {
+            Image("pebble_base_front").resizable().scaledToFit().frame(width: 120, height: 120)
+                .shadow(color: Color(red: 90/255, green: 60/255, blue: 40/255, opacity: 0.18), radius: 8, y: 12)
+            Text("What's going on?").font(.title(30)).foregroundStyle(Color.navy)
+            Text("Tell me what's on your plate. I'll turn it into tasks and find who can help.").multilineTextAlignment(.center).font(.body15).foregroundStyle(Color.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .onTapGesture { typing = false }
+    }
+
+    // MARK: Messages
+
+    @ViewBuilder private func exchange(_ x: Binding<Exchange>, live: Bool) -> some View {
+        let e = x.wrappedValue
+        Text(e.said).font(.body15).foregroundStyle(Color.ink)
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color(hex: 0xebe8e3, 0.9), in: .rect(cornerRadius: 20))
+            .frame(maxWidth: 300, alignment: .trailing)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+
+        VStack(alignment: .leading, spacing: 10) {
+            Image(e.stage == .sensitive ? "pebble_sensitive_01" : e.stage == .done ? "pebble_carry_03" : "pebble_offer_open_hands")
+                .resizable().scaledToFit().frame(width: 34, height: 34)
+            switch e.stage {
+            case .sensitive:
+                reply("That sounds really hard. I can't help with symptoms or medicine. \(LOVED)'s hospice team can, any time of day or night.")
+                Label("I didn't save what you said, and I never contact hospice on my own.", systemImage: "lock")
+                    .font(.meta).foregroundStyle(Color.muted)
+                Button("Call hospice") { store.say("In the real app this calls the hospice number the family saved.") }
+                    .buttonStyle(PrimaryButton()).frame(width: 180)
+            case .review:
+                reply(e.props.isEmpty ? "I didn't find anything to add. Try saying what needs doing." : "Here's what I'd add. Tap one to leave it out.")
+                ForEach(x.props) { $p in proposal($p, live: live) }
+                if let first = e.skipped.first {
+                    (Text("I left \(e.skipped.count == 1 ? "one thing" : "\(e.skipped.count) things") out. ").bold()
+                     + Text(e.skipped.contains { hits(PEB_MEDS, $0) } ? "Anything about medicine or symptoms is a question for \(LOVED)'s hospice nurse. " : "")
+                     + Text("“\(first)”"))
+                        .font(.app(13.5)).foregroundStyle(Color.sectionInk)
+                }
+                if live {
+                    let on = e.props.filter { $0.on && $0.kind != .dup }.count
+                    if on > 0 {
+                        Button(on == 1 ? "Yes, add this" : "Yes, add these \(on)") { yes(x) }
+                            .buttonStyle(PrimaryButton()).padding(.top, 2)
+                    }
+                }
+            case .done:
+                reply("Done. Here's where they went.")
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(e.done.enumerated()), id: \.offset) { _, d in
+                        HStack(spacing: 12) {
+                            Stone(state: d.st, w: .small, base: 22).frame(width: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(d.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                                Text(d.m).font(.meta).foregroundStyle(Color.muted)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+                .glassCard(radius: 18, padding: 14)
+                HStack(spacing: 16) {
+                    if live, e.newId != nil, store.kit == true {
+                        Button("Pair a stone") { pairing = true }.font(.app(14, .semibold))
+                    }
+                    Button("Undo in What Pebble did") { log = true }.font(.app(14, .semibold)).foregroundStyle(Color.muted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func reply(_ s: String) -> some View {
+        Text(s).font(.app(16)).foregroundStyle(Color.ink).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func proposal(_ p: Binding<Proposal>, live: Bool) -> some View {
+        let v = p.wrappedValue
+        return Button { if v.kind != .dup { withAnimation(.snappy) { p.wrappedValue.on.toggle() } } } label: {
+            HStack(alignment: .top, spacing: 12) {
+                if v.kind == .dup { Stone(state: .done, w: .small, base: 22).frame(width: 26) }
+                else { Image(systemName: v.on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(v.on ? Color.shoalBlue : Color.muted) }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(v.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
+                    Text(v.m).font(.meta).foregroundStyle(v.kind == .step || v.kind == .dup ? Color(hex: 0x8a5d0c) : Color.muted)
+                    if let s = v.step { Text("Step: \(s)").font(.meta).foregroundStyle(Color.muted) }
+                }
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .opacity(v.on || v.kind == .dup ? 1 : 0.5)
+            .pearl(radius: 16, padding: 12)
+        }
+        .buttonStyle(Pressable())
+        .disabled(v.kind == .dup || !live)
+        .accessibilityAddTraits(v.on ? .isSelected : [])
+    }
+
+    // MARK: Composer
+
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if chat.isEmpty && blank && !mic.on {
+                FlowRow(spacing: 8) {
+                    ForEach(samples, id: \.0) { s in
+                        Button { text = s.1 } label: {
+                            Text(s.0).font(.app(14, .medium)).foregroundStyle(Color.ink)
+                                .padding(.horizontal, 14).frame(height: 38)
+                                .background(.white.opacity(0.75), in: .capsule)
+                                .overlay(Capsule().strokeBorder(.white))
+                        }
+                        .buttonStyle(Pressable())
+                    }
+                }
+                .transition(.opacity)
+            }
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField(mic.on ? "Listening…" : "Tell Pebble what's going on", text: $text, axis: .vertical)
+                    .focused($typing)
+                    .lineLimit(1...6).font(.app(16))
+                    .padding(.vertical, 13)
+                    .accessibilityLabel("Tell Pebble what's going on")
+                if mic.on || blank {
+                    Button { listen() } label: {
+                        Image(systemName: mic.on ? "stop.fill" : "mic.fill").font(.system(size: mic.on ? 12 : 15, weight: .semibold))
+                            .foregroundStyle(.white).frame(width: 34, height: 34)
+                            .background(mic.on ? Color.alert : Color.shoalBlue, in: .circle)
+                            .symbolEffect(.pulse, isActive: mic.on)
+                    }
+                    .accessibilityLabel(mic.on ? "Stop listening" : "Talk to Pebble")
+                    .padding(.bottom, 7)
+                }
+                if !blank {
+                    Button { send() } label: {
+                        Image(systemName: "arrow.up").font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white).frame(width: 34, height: 34)
+                            .background(Color.navy, in: .circle)
+                    }
+                    .accessibilityLabel("Send")
+                    .padding(.bottom, 7)
+                }
+            }
+            .padding(.leading, 18).padding(.trailing, 7)
+            .background(.white, in: .rect(cornerRadius: 26))
+            .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Color(hex: 0xe6e3de)))
+            .shadow(color: Color(hex: 0x21262e, 0.08), radius: 14, y: 6)
+        }
+        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
+        .animation(.snappy, value: blank)
+        .animation(.snappy, value: mic.on)
+    }
+
+    // MARK: Actions
+
+    private func listen() {
+        if mic.on { mic.stop(); return }
+        typing = false
+        mic.start(after: text) { store.say("Couldn't hear you. You can type instead.") }
+    }
+
+    private func send() {
+        mic.stop(); typing = false
+        let said = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !said.isEmpty else { return }
+        text = ""
+        let e: Exchange
+        if let r = store.hear(said) { e = Exchange(said: said, stage: .review, props: r.props, skipped: r.skipped) }
+        else { e = Exchange(said: said, stage: .sensitive) }
+        withAnimation(.snappy) { chat.append(e) }
+    }
+
+    private func yes(_ x: Binding<Exchange>) {
+        let before = Set(store.tasks.map(\.id))
+        let done = store.commit(x.wrappedValue.props)
+        let newId = store.tasks.first { !before.contains($0.id) && $0.who == "you" }?.id
+        withAnimation(.snappy) {
+            x.wrappedValue.done = done
+            x.wrappedValue.newId = newId
+            x.wrappedValue.stage = .done
+        }
+    }
+}
+
+// MARK: - Listening with the microphone
+
+@MainActor @Observable final class Listener {
+    var on = false
+    var heard = ""
+    @ObservationIgnored private let engine = AVAudioEngine()
+    @ObservationIgnored private var req: SFSpeechAudioBufferRecognitionRequest?
+    @ObservationIgnored private var job: SFSpeechRecognitionTask?
+
+    // Adds what it hears after `base`. Calls `failed` if it can't listen.
+    func start(after base: String, failed: @escaping @MainActor () -> Void) {
+        Task {
+            guard await Self.speechAllowed(), await AVAudioApplication.requestRecordPermission(),
+                  let rec = SFSpeechRecognizer(locale: Locale(identifier: "en-US")), rec.isAvailable else { failed(); return }
+            let input = engine.inputNode
+            let format = input.outputFormat(forBus: 0)
+            guard format.sampleRate > 0, format.channelCount > 0 else { failed(); return }
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                let req = SFSpeechAudioBufferRecognitionRequest()
+                req.shouldReportPartialResults = true
+                input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.feed(req))
+                engine.prepare()
+                try engine.start()
+                self.req = req
+                let b = base.trimmingCharacters(in: .whitespacesAndNewlines)
+                let lead = b.isEmpty ? "" : b + " "
+                heard = b
+                on = true
+                job = rec.recognitionTask(with: req, resultHandler: Self.results { [weak self] s, end in
+                    Task { @MainActor in
+                        guard let self, self.on else { return }
+                        if let s { self.heard = lead + s }
+                        if end { self.stop() }
+                    }
+                })
+            } catch { stop(); failed() }
+        }
+    }
+
+    func stop() {
+        guard on || engine.isRunning else { return }
+        on = false
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        req?.endAudio(); job?.cancel()
+        req = nil; job = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    // These are built outside the main actor because the audio and speech callbacks run on their own threads.
+    nonisolated private static func speechAllowed() async -> Bool {
+        await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0 == .authorized) } }
+    }
+    nonisolated private static func feed(_ req: SFSpeechAudioBufferRecognitionRequest) -> AVAudioNodeTapBlock {
+        { buffer, _ in req.append(buffer) }
+    }
+    nonisolated private static func results(_ f: @escaping @Sendable (String?, Bool) -> Void) -> (SFSpeechRecognitionResult?, (any Error)?) -> Void {
+        { r, e in f(r?.bestTranscription.formattedString, e != nil || r?.isFinal == true) }
     }
 }
 

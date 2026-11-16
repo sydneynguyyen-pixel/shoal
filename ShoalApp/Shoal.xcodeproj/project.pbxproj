@@ -276,12 +276,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Shoal.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DSHLQR8K25;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Shoal-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Shoal;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID opens Dad's care page.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pebble turns what you say into text so it can sort it into tasks.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "So you can talk to Pebble instead of typing.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -307,12 +310,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Shoal.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DSHLQR8K25;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Shoal-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Shoal;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID opens Dad's care page.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pebble turns what you say into text so it can sort it into tasks.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "So you can talk to Pebble instead of typing.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -336,6 +342,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShoalWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DSHLQR8K25;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "ShoalWidgets-Info.plist";
@@ -360,6 +367,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShoalWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DSHLQR8K25;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "ShoalWidgets-Info.plist";

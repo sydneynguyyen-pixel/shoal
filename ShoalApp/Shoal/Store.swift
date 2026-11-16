@@ -27,10 +27,18 @@ struct KitStone: Identifiable, Hashable {
 }
 
 func demoStones() -> [KitStone] {
-    let batt = [92, 88, 100, 76, 95, 81, 22, 97, 64, 90, 85, 99, 73, 91, 87, 100, 68, 94, 79, 96, 83, 100, 71, 89, 93, 77, 98, 86, 66, 100, 84, 92, 75, 97, 88, 90]
-    return (1...36).map { i in
-        KitStone(id: i, size: i <= 12 ? .small : i <= 27 ? .medium : .large, battery: batt[i - 1], out: i == 7)
+    let batt = [82, 64, 91, 18, 77, 55, 100, 12, 69, 88, 73, 95, 60, 47, 84, 70, 93, 66, 79, 90, 58, 86, 75, 97, 81, 68, 92, 74, 87, 63, 99, 71, 85, 78, 94, 67]
+    let size = [2, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 2, 3, 3, 2, 1, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 2, 3]
+    var stones = (1...36).map { i in KitStone(id: i, size: Weight(rawValue: size[i - 1])!, battery: batt[i - 1], out: i == 4) }
+    // Six stones already paired, like the web demo.
+    let tasks = demoTasks()
+    for who in ["mom", "mom", "bill", "bill", "bill", "sam"] {
+        guard let t = tasks.first(where: { t in t.who == who && !t.done && !stones.contains { $0.task == t.id } }) else { continue }
+        let free = stones.filter { $0.task == nil }
+        guard let s = free.min(by: { abs($0.size.rawValue - t.w.rawValue) < abs($1.size.rawValue - t.w.rawValue) }) else { continue }
+        stones[s.id - 1].task = t.id
     }
+    return stones
 }
 
 // Everything Pebble changed, with how to undo it.
@@ -56,11 +64,14 @@ final class Store {
     var thanked: Set<String> = []
     var dismissed: Set<String> = []
     var pebbleLog: [PebbleEntry] = []
+    var costTasks: [String: String] = [:]   // program id → the task "Make a task" added
     var toast: String?
+    var sheetToasts = 0   // sheets showing the toast themselves
     var day: Date = TODAY
     var requests: [Request] = [Request(id: "r1", from: "mom", n: "Call the pharmacy", note: "They'll only talk to the main contact.")]
     var toldFamily = false
     var handPick: String?   // Pebble's pick, made before Hand off opens
+    var handReplies = 0     // one-person hand-offs alternate yes and no, so both paths can be shown
 
     // Dad's care page. Locked for primary caregivers, relocks after 5 minutes.
     var meds: [Med] = demoMeds()
@@ -70,6 +81,7 @@ final class Store {
     var prefs: [CareNote] = demoPrefs()
     var careUnlockedAt: Date?
     var pin = "1234"
+    var pinSetting = false   // choosing a new PIN on the care page
 
     // First open: splash, sign in, intro, then three onboarding steps.
     var onboarded = false
@@ -83,6 +95,7 @@ final class Store {
     var setup: Set<String>?
     var setupHidden = false
     var setupTasks: [String] = []
+    var sample = true        // showing the sample family, not a new account
     var calendars: Set<String> = []
     var monthSkipped = false
 
@@ -91,7 +104,7 @@ final class Store {
     var stones: [KitStone] = demoStones()
     var glow: Glow = .on
     var night = true
-    var nightFrom = 21
+    var nightFrom = 22
     var nightTo = 7
     var kitSetup = false
 
@@ -110,17 +123,49 @@ final class Store {
         }
     }
 
+    // The sample family: months of tasks, people, care notes and paired stones. Used until onboarding starts,
+    // and again when onboarding is skipped.
+    func loadDemo() {
+        people = DEMO_PEOPLE; tasks = demoTasks(); checkIn = nil; heldOpen = false
+        thanked = []; dismissed = []; pebbleLog = []; costTasks = [:]; toldFamily = false; handReplies = 0
+        requests = [Request(id: "r1", from: "mom", n: "Call the pharmacy", note: "They'll only talk to the main contact.")]
+        meds = demoMeds(); doses = demoDoses(); careKey = demoKey(); needs = demoNeeds(); prefs = demoPrefs()
+        stones = demoStones(); setupTasks = []; sample = true
+    }
+
+    // A new account: just you. Everything else comes from onboarding and the Home checklist.
+    func loadFresh() {
+        people = DEMO_PEOPLE.filter { $0.id == "you" }; tasks = []; checkIn = nil; heldOpen = false
+        thanked = []; dismissed = []; pebbleLog = []; costTasks = [:]; toldFamily = false; handReplies = 0
+        requests = []
+        meds = []; doses = []; careKey = []; needs = []; prefs = []
+        stones = demoStones().map { var s = $0; s.task = nil; return s }; setupTasks = []; sample = false
+    }
+
+    // Settings switch: jump between a new account and the full sample family without leaving the app.
+    func useAccount(sample on: Bool) {
+        guard on != sample else { return }
+        withAnimation(.smooth(duration: 0.35)) {
+            if on {
+                LOVED = "Dad"; lovedName = "Dad"; loadDemo(); setup = nil
+                if kit == nil { kit = true }
+            } else {
+                loadFresh(); setup = []; setupHidden = false
+            }
+            paths = [[], [], [], [], []]
+        }
+        syncWidgets()
+        say(on ? "Showing the full family" : "Showing a new account")
+    }
+
     func reset() {
         LOVED = "Dad"
-        people = DEMO_PEOPLE; tasks = demoTasks(); checkIn = nil; heldOpen = false
-        thanked = []; dismissed = []; pebbleLog = []; toldFamily = false
-        requests = [Request(id: "r1", from: "mom", n: "Call the pharmacy", note: "They'll only talk to the main contact.")]
+        loadDemo()
         paths = [[], [], [], [], []]; tab = 0; day = TODAY
-        meds = demoMeds(); doses = demoDoses(); careKey = demoKey(); needs = demoNeeds(); prefs = demoPrefs()
-        careUnlockedAt = nil; pin = "1234"
+        careUnlockedAt = nil; pin = "1234"; pinSetting = false
         onboarded = false; first = .splash; phone = ""; lovedName = "Dad"; careStage = "final"; conditions = []
         colors = .shoal; setup = nil; setupHidden = false; setupTasks = []; calendars = []; monthSkipped = false
-        kit = nil; stones = demoStones(); glow = .on; night = true; nightFrom = 21; nightTo = 7; kitSetup = false
+        kit = nil; glow = .on; night = true; nightFrom = 22; nightTo = 7; kitSetup = false
         syncWidgets()
     }
 
@@ -201,35 +246,60 @@ final class Store {
         tasks[i].steps[s].who = "you"
     }
 
+    func names(_ ids: [String]) -> String { andList(ids.map { name($0) }) }
+
+    // A hand-off is a request. The task stays put until they say yes, and everyone sees how it went.
     func sendHandoff(_ id: String, to: [String], note: String, step: Int?, byPebble: Bool) {
         guard let i = idx(id) else { return }
-        let names = to.map { name($0) }.joined(separator: ", ")
-        if byPebble { pebbleDid("Wrote the note to \(names) for “\(tasks[i].n)”", how: "You checked it and sent it") }
-        if let s = step, tasks[i].steps.indices.contains(s) {
-            tasks[i].steps[s].ask = to.first
-            let taker = to.first
-            say("Asked \(names)")
+        let t = tasks[i]
+        if byPebble && !note.isEmpty { pebbleDid("Wrote the note asking for help with “\(t.n)”", how: "You checked it and sent the request") }
+        let taker = to.first { person($0)?.tier == .main } ?? to.first
+        if let s = step, t.steps.indices.contains(s) {
+            tasks[i].steps[s].ask = to
+            say("Asked \(names(to)) about “\(t.steps[s].n)”")
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(4))
-                if let j = idx(id), tasks[j].steps.indices.contains(s) {
-                    tasks[j].steps[s].who = taker
-                    tasks[j].steps[s].ask = nil
-                    say("\(name(taker)) took “\(tasks[j].steps[s].n.lowercased())”")
-                }
+                guard let j = idx(id), tasks[j].steps.indices.contains(s), tasks[j].steps[s].who == nil else { return }
+                tasks[j].steps[s].who = taker
+                tasks[j].steps[s].ask = nil
+                say("\(name(taker)) took “\(tasks[j].steps[s].n)”")
             }
-        } else {
-            tasks[i].handoff = Handoff(to: to, note: note)
-            say(to.count > 1 ? "Asked \(to.count) people. First to say yes takes it." : "Asked \(names)")
-            let taker = to.first
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(4))
-                if let j = idx(id), tasks[j].handoff != nil {
-                    tasks[j].who = taker
-                    tasks[j].handoff?.pending = false
-                    say("\(name(taker)) said yes to “\(tasks[j].n)”")
-                }
-            }
+            return
         }
+        let able = people.filter { $0.id != t.who && canTake($0, t) }
+        let many = to.count > 1
+        let all = many && able.allSatisfy { to.contains($0.id) }
+        tasks[i].handoff = Handoff(to: to, note: note, all: all)
+        let stay = t.who == "you" ? "with you" : "with \(name(t.who))"
+        say(many ? "Asked \(all ? "everyone" : names(to)). It stays \(stay) until someone says yes."
+                 : "Asked \(name(to.first)). It stays \(stay) until they say yes.")
+        // The prototype answers for them. One person: yes first, then no.
+        // Several people: someone always says yes, and the rest are told it's covered.
+        if !many { handReplies += 1 }
+        let yes = many || handReplies % 2 == 1
+        let who = many ? taker : to.first
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            guard let j = idx(id), tasks[j].handoff?.pending == true else { return }
+            tasks[j].handoff?.status = yes ? .accepted : .declined
+            tasks[j].handoff?.when = "Just now"
+            tasks[j].handoff?.taker = who
+            if yes { tasks[j].who = who } else { tasks[j].handoff?.why = "Can't this week. I'm traveling until Sunday." }
+            say(yes ? "\(name(who)) said yes to “\(tasks[j].n)”\(many ? ". The others were told." : "")" : "\(name(who)) can't take “\(tasks[j].n)”")
+        }
+    }
+
+    func leaveOpen(_ id: String) {
+        guard let i = idx(id) else { return }
+        tasks[i].who = nil
+        tasks[i].handoff = nil
+        say("It glows white for whoever is free")
+    }
+
+    func cancelHandoff(_ id: String) {
+        guard let i = idx(id) else { return }
+        tasks[i].handoff = nil
+        say("Request canceled")
     }
 
     func answer(_ r: Request, yes: Bool) {
@@ -244,7 +314,10 @@ final class Store {
 
     func addTask(_ t: CareTask) {
         tasks.append(t)
-        say(t.who == nil ? "Added. Anyone it's open to can take it." : "Added to \(t.who == "you" ? "your" : name(t.who) + "'s") jar.")
+        // Like the web: back to your jar if it's yours, otherwise Home, where everyone's jars are.
+        back()
+        if t.who != "you" { paths[0] = []; tab = 0 }
+        say("Saved. Its \(t.w.label.lowercased()) stone is in \(t.who == nil ? "the open pile" : t.who == "you" ? "your jar" : name(t.who) + "'s jar").")
     }
 
     func move(_ id: String, to who: String) {
@@ -289,7 +362,7 @@ final class Store {
     func stoneOf(_ taskId: String) -> KitStone? { stones.first { $0.task == taskId } }
     // A task gets a free stone its own size, or the closest size left.
     func freeStone(_ w: Weight) -> KitStone? {
-        stones.filter { $0.task == nil && !$0.out }.min { abs($0.size.rawValue - w.rawValue) < abs($1.size.rawValue - w.rawValue) }
+        stones.filter { $0.task == nil }.min { abs($0.size.rawValue - w.rawValue) < abs($1.size.rawValue - w.rawValue) }
     }
     @discardableResult func pair(_ taskId: String) -> KitStone? {
         guard stoneOf(taskId) == nil, let t = task(taskId), let s = freeStone(t.w), let j = stones.firstIndex(of: s) else { return stoneOf(taskId) }

@@ -7,6 +7,7 @@ struct ShoalApp: App {
     var body: some Scene {
         WindowGroup {
             RootView().environment(delegate.store).tint(.shoalBlue)
+                .preferredColorScheme(.light)   // the web has no dark mode
                 .onOpenURL { open($0) }
                 .task { delegate.store.syncWidgets(); delegate.store.startSeededActivity() }
                 .onChange(of: phase) { if phase == .background { delegate.store.syncWidgets() } }
@@ -46,7 +47,7 @@ struct RootView: View {
             Tab("Settings", image: "tab-settings", value: 4) { stack(4) { SettingsView() } }
         }
         .overlay(alignment: .top) {
-            if let t = store.toast { ToastView(text: t).padding(.top, 4) }
+            if let t = store.toast, store.sheetToasts == 0 { ToastView(text: t).padding(.top, 4) }
         }
         .fullScreenCover(isPresented: $store.kitSetup) { KitSetupView() }
     }

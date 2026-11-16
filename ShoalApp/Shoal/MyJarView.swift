@@ -30,7 +30,7 @@ struct MyJarView: View {
             }
             VStack(spacing: 6) {
                 Jar(who: "you", width: 120)
-                Text(live.isEmpty ? "All done" : "\(live.count) to do").font(.app(14)).foregroundStyle(Color.muted)
+                Text(live.isEmpty ? (store.mine("you").isEmpty ? "No tasks yet" : "All done") : "\(live.count) to do").font(.app(14)).foregroundStyle(Color.muted)
             }
             .frame(maxWidth: .infinity).padding(.top, 4)
             HStack(spacing: 0) {

@@ -10,6 +10,7 @@ extension Color {
     static let sectionInk = Color(hex: 0x4f5560)
     static let shoalBlue = Color(hex: 0x2070d9)
     static let blueTint = Color(hex: 0x2070d9, 0.1)
+    static let blueLabel = Color(hex: 0x2f6fcb)
     static let amber = Color(hex: 0xc98a1b)
     static let alert = Color(hex: 0xc4442f)
     static let thanks = Color(hex: 0x7357c4)
@@ -411,4 +412,40 @@ struct ToastView: View {
 
 struct Chevron: View {
     var body: some View { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(hex: 0xa3a9b3)) }
+}
+
+// Lays children out left to right and wraps to a new line when they run out of room, like chips on the web.
+struct FlowRow: Layout {
+    var spacing: CGFloat = 8
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(proposal.width ?? .infinity, subviews)
+        return CGSize(width: proposal.width ?? rows.map(\.width).max() ?? 0,
+                      height: rows.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(0, rows.count - 1)))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(bounds.width, subviews) {
+            var x = bounds.minX
+            for i in row.items {
+                let s = subviews[i].sizeThatFits(.unspecified)
+                subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+                x += s.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+    private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+    private func arrange(_ maxW: CGFloat, _ subviews: Subviews) -> [Row] {
+        var rows = [Row()]
+        for (i, v) in subviews.enumerated() {
+            let s = v.sizeThatFits(.unspecified)
+            if !rows[rows.count - 1].items.isEmpty && rows[rows.count - 1].width + spacing + s.width > maxW { rows.append(Row()) }
+            var r = rows[rows.count - 1]
+            r.width += (r.items.isEmpty ? 0 : spacing) + s.width
+            r.height = max(r.height, s.height)
+            r.items.append(i)
+            rows[rows.count - 1] = r
+        }
+        return rows
+    }
 }

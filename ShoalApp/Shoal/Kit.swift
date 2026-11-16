@@ -286,7 +286,6 @@ struct KitView: View {
     @State private var colors = false
     @State private var pairing = false
     @State private var nightSheet = false
-    @State private var stop = false
 
     private let bg = Color(hex: 0x0c1a30)
     private let card = Color.white.opacity(0.07)
@@ -296,7 +295,7 @@ struct KitView: View {
         let out = store.stones.filter(\.out)
         let total = store.stones.count
         let charging = total - out.count
-        let avg = store.stones.reduce(0) { $0 + $1.battery } / max(total, 1)
+        let avg = Int((Double(store.stones.reduce(0) { $0 + $1.battery }) / Double(max(total, 1))).rounded())
         let paired = store.stones.filter { $0.task != nil }.count
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -394,17 +393,13 @@ struct KitView: View {
                 }
                 .padding(.horizontal, 14).background(card, in: .rect(cornerRadius: 22))
 
-                Button("Stop using the kit") { stop = true }
-                    .font(.app(15, .semibold)).foregroundStyle(.white.opacity(0.7)).frame(maxWidth: .infinity).padding(.top, 6)
-                .confirmationDialog("Stop using the kit?", isPresented: $stop, titleVisibility: .visible) {
-                    Button("Stop using the kit", role: .destructive) {
-                        store.kit = false
-                        for i in store.stones.indices { store.stones[i].task = nil }
-                        store.back()
-                        store.say("Kit off. Everything still works in the app.")
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: { Text("Stones are unpaired. Your tasks and jars in the app stay the same.") }
+                Button("Stop using the kit") {
+                    store.kit = false
+                    store.paths[store.tab] = []
+                    store.tab = 4
+                    store.say("Kit off. Your stones and jars stay in the app.")
+                }
+                .font(.app(15, .semibold)).foregroundStyle(.white.opacity(0.7)).frame(maxWidth: .infinity).padding(.top, 6)
             }
             .padding(.horizontal, 20).padding(.bottom, 30)
         }
@@ -414,7 +409,7 @@ struct KitView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $colors) { ColorsSheet() }
         .sheet(isPresented: $pairing) { PairSheet().presentationDetents([.medium, .large]) }
-        .sheet(isPresented: $nightSheet) { NightSheet().presentationDetents([.height(340)]) }
+        .sheet(isPresented: $nightSheet) { NightSheet().presentationDetents([.height(360)]).presentationBackground { AppBackground() } }
     }
 
     private func reading(_ f: Double, _ val: String, _ unit: String, _ lab: String, low: Bool = false) -> some View {
@@ -450,7 +445,7 @@ struct KitView: View {
 
 func hourText(_ h: Int) -> (String, String) {
     let hh = h % 12 == 0 ? 12 : h % 12
-    return ("\(hh):00", h < 12 ? "AM" : "PM")
+    return ("\(hh)", h < 12 ? "AM" : "PM")
 }
 
 // A thin progress ring. It fills in from empty when it first draws.
@@ -475,23 +470,26 @@ struct NightSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        @Bindable var store = store
         VStack(alignment: .leading, spacing: 14) {
             Text("Night hours").font(.title(26)).foregroundStyle(Color.navy)
-            Text("Stones stay dark so they don't light up the room at night. Urgent stones still glow softly.").font(.body15).foregroundStyle(Color.muted)
-            HStack {
-                Picker("From", selection: $store.nightFrom) { ForEach(17..<24, id: \.self) { h in Text("\(hourText(h).0) \(hourText(h).1)").tag(h) } }
-                    .fixedSize()
-                Spacer()
-                Text("until").foregroundStyle(Color.muted)
-                Spacer()
-                Picker("To", selection: $store.nightTo) { ForEach(5..<11, id: \.self) { h in Text("\(hourText(h).0) \(hourText(h).1)").tag(h) } }
-                    .fixedSize()
-            }
-            .glassCard()
-            Button("Done") { dismiss(); store.say("Night hours saved") }.buttonStyle(PrimaryButton())
+            Text("Stones stop glowing overnight, then come back on.").font(.body15).foregroundStyle(Color.muted)
+            Text("Turn off at").font(.app(14, .semibold)).foregroundStyle(Color.sectionInk)
+            HStack(spacing: 8) { ForEach([21, 22, 23], id: \.self) { h in chip(h, on: store.nightFrom == h) { store.nightFrom = h } } }
+            Text("Back on at").font(.app(14, .semibold)).foregroundStyle(Color.sectionInk)
+            HStack(spacing: 8) { ForEach([6, 7, 8], id: \.self) { h in chip(h, on: store.nightTo == h) { store.nightTo = h } } }
+            Button("Done") { dismiss() }.buttonStyle(PrimaryButton()).padding(.top, 6)
         }
         .padding(24)
+    }
+
+    private func chip(_ h: Int, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button { withAnimation(.snappy) { action() } } label: {
+            Text("\(hourText(h).0) \(hourText(h).1)").font(.app(14, .semibold)).foregroundStyle(on ? .white : Color.ink)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(on ? Color.navy : .white.opacity(0.85), in: .capsule)
+        }
+        .buttonStyle(Pressable())
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
@@ -506,12 +504,19 @@ struct PairSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Pair a stone").font(.title(26)).foregroundStyle(Color.navy)
-                    Text("Pick a task. \(only == nil ? "It gets a spare stone its size." : "This stone glows as soon as it's paired.")").font(.body15).foregroundStyle(Color.muted)
+                    Text("Pick a task. Then hold the stone to your phone.").font(.body15).foregroundStyle(Color.muted)
                     if list.isEmpty { Text("Every task has a stone.").font(.body15).foregroundStyle(Color.muted).padding(.top, 10) }
                     VStack(spacing: 0) {
-                        ForEach(list) { t in
+                        ForEach(list.prefix(8)) { t in
                             if t.id != list.first?.id { RowSep() }
-                            TaskLine(t: t, action: { pair(t) })
+                            Button { pair(t) } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(t.n).font(.app(15, .semibold)).foregroundStyle(Color.ink).multilineTextAlignment(.leading)
+                                    Text("\(store.name(t.who)) · \(t.w.label.lowercased()) stone").font(.meta).foregroundStyle(Color.muted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 11).contentShape(.rect)
+                            }
+                            .buttonStyle(Pressable())
                         }
                     }
                     .glassCard(padding: 12)
@@ -519,7 +524,10 @@ struct PairSheet: View {
                 .padding(20)
             }
             .background(AppBackground())
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .safeAreaInset(edge: .bottom) {
+                Button("Cancel") { dismiss() }.buttonStyle(PrimaryButton())
+                    .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 6)
+            }
         }
     }
 
@@ -632,7 +640,7 @@ struct StoneDetailView: View {
                     Text("\(store.place(s)) · last seen 2 min ago").font(.meta).foregroundStyle(Color.muted)
                     HStack(spacing: 8) {
                         badge(t == nil ? "Spare" : st == .done ? "Resting" : "Glowing · \(st.short.lowercased())", amber: st == .urgent && t != nil)
-                        badge(s.out ? "▮ \(s.battery)% · about \(plural(max(1, s.battery / 25), "day")) left" : "⚡ \(s.battery)% · charging", amber: s.out)
+                        badge(s.out ? "▮ \(s.battery)% · about \(plural(max(1, Int((Double(s.battery) / 25).rounded())), "day")) left" : "⚡ \(s.battery)% · charging", amber: s.out)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -671,11 +679,12 @@ struct StoneDetailView: View {
                 .glassCard()
                 if t != nil {
                     Button("Unpair this stone", role: .destructive) {
-                        if let j = store.stones.firstIndex(where: { $0.id == id }) { store.stones[j].task = nil; store.say("\(s.label) is a spare again") }
+                        if let j = store.stones.firstIndex(where: { $0.id == id }) { store.stones[j].task = nil; store.back(); store.say("Stone unpaired. Keep it on the base as a spare.") }
                     }
                     .font(.app(15, .semibold)).frame(maxWidth: .infinity).padding(.top, 6)
                 }
             }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Rename") { store.say("Renaming is coming soon") } } }
             .sheet(isPresented: $pairing) { PairSheet(only: id).presentationDetents([.medium, .large]) }
         }
     }
@@ -690,9 +699,9 @@ struct StoneDetailView: View {
     }
 
     private func blinkIt(_ s: KitStone) {
-        store.say("\(s.label) is blinking for 30 seconds")
+        store.say("\(s.label) is blinking")
         Task {
-            for _ in 0..<8 {
+            for _ in 0..<6 {
                 withAnimation(.easeInOut(duration: 0.3)) { blink.toggle() }
                 try? await Task.sleep(for: .seconds(0.45))
             }

@@ -42,7 +42,7 @@ struct HomeView: View {
                             Jar(who: p.id, width: jarW, lit: store.kit == true ? store.glow.lit : 1)
                             Text(p.name).font(.app(13.5, .semibold)).foregroundStyle(Color.ink).padding(.top, 2)
                             let n = store.mine(p.id).filter { !$0.done }.count
-                            Text(p.invited ? "Invited" : n > 0 ? "\(n) to do" : "All done").font(.app(12)).foregroundStyle(Color.muted)
+                            Text(p.invited ? "Invited" : n > 0 ? "\(n) to do" : store.mine(p.id).isEmpty ? "No tasks yet" : "All done").font(.app(12)).foregroundStyle(Color.muted)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -354,7 +354,7 @@ struct WeekCard: View {
                 }
             }
             .padding(.top, 6)
-            Text(heavyN > 0 ? "\(DAY_FULL[dayKey(heavy)]!) is the heavy day · \(plural(heavyN, "task"))" : "A light week")
+            Text(heavyN > 0 ? "\(DAY_FULL[dayKey(heavy)]!) is the heavy day · \(plural(heavyN, "task"))" : store.tasks.isEmpty ? "Nothing planned yet" : "A light week")
                 .font(.app(13.5)).foregroundStyle(Color.muted).padding(.horizontal, 4).padding(.top, 6).padding(.bottom, 8)
             if today.isEmpty {
                 Text("Nothing on \(DAY_FULL[dayKey(store.day)]!).").font(.meta).foregroundStyle(Color.muted).padding(.vertical, 12)

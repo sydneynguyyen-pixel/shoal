@@ -34,7 +34,7 @@ struct StoneColors: Equatable {
     }
     func hue(_ s: StoneState) -> Hue { HUES[self[s]] ?? HUES["white"]! }
     func name(_ s: StoneState) -> String { s == .done ? "light off" : hue(s).name }
-    var summary: String { COLOR_STATES.map { hue($0).name.capitalized }.joined(separator: " · ") }
+    var summary: String { COLOR_STATES.map { hue($0).name.prefix(1).uppercased() + hue($0).name.dropFirst() }.joined(separator: " · ") }
 
     // Two states can't share a color, so the one already using it takes the old color instead.
     mutating func pick(_ key: String, for s: StoneState) {

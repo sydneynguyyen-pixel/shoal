@@ -71,6 +71,18 @@ struct SettingsView: View {
             row("Sign out", "Back to the sign-in screen") { signOut = true }
                 .glassCard(padding: 14)
 
+            SectionH(text: "Prototype")
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Account", selection: Binding(get: { store.sample }, set: { store.useAccount(sample: $0) })) {
+                    Text("New account").tag(false)
+                    Text("Full family").tag(true)
+                }
+                .pickerStyle(.segmented)
+                Text(store.sample ? "Months of tasks, five people and paired stones" : "Just finished onboarding, nothing added yet")
+                    .font(.meta).foregroundStyle(Color.muted)
+            }
+            .glassCard(padding: 14)
+
             Button("Restart prototype") { restart = true }
                 .font(.app(15, .semibold)).frame(maxWidth: .infinity).padding(.top, 18)
         }

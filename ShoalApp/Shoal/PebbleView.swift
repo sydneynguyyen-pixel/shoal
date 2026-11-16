@@ -1,68 +1,5 @@
 import SwiftUI
 
-struct PebbleView: View {
-    @Environment(Store.self) private var store
-    @State private var talk = false
-    @State private var costs = false
-    @State private var log = false
-    @State private var sees = false
-
-    var body: some View {
-        let open = store.active.first { $0.who == nil }
-        Page {
-            VStack(spacing: 10) {
-                Image("pebble_base_front").resizable().scaledToFit().frame(width: 150, height: 150)
-                    .shadow(color: Color(red: 90/255, green: 60/255, blue: 40/255, opacity: 0.18), radius: 8, y: 12)
-                    .padding(.top, 12)
-                Text("Hi, I'm Pebble").font(.title()).foregroundStyle(Color.navy)
-                Text("Tell me what's going on. I'll sort it into tasks.").font(.body15).foregroundStyle(Color.muted).multilineTextAlignment(.center)
-                Button("Talk it through") { talk = true }.buttonStyle(PrimaryButton()).padding(.top, 6)
-            }
-            .frame(maxWidth: .infinity)
-
-            PebbleHomeCard().padding(.top, 6)
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                tile("pebble_offer_open_hands", "Find someone", open?.n ?? "Nothing open") {
-                    if let open { store.pebbleHandoff(open.id) } else { store.say("Every task has someone. Nothing to ask for.") }
-                }
-                tile("pebble_research_glasses_focused", "Help with costs", "\(PROGRAMS.count) programs") { costs = true }
-                tile("pebble_think_01", "Monthly check-in", "For when you're together") { store.go(.month) }
-                tile("pebble_carry_03", "What I did", store.pebbleLog.isEmpty ? "Nothing yet" : "\(plural(store.pebbleLog.count, "change")) · undo any") { log = true }
-            }
-            .padding(.top, 6)
-            Button { sees = true } label: {
-                HStack {
-                    Text("What Pebble can see").font(.app(15, .semibold)).foregroundStyle(Color.ink)
-                    Spacer()
-                    Chevron()
-                }
-                .glassCard(radius: 26, padding: 18)
-            }
-            .buttonStyle(Pressable())
-        }
-        .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $talk) { TalkView() }
-        .sheet(isPresented: $costs) { CostsView() }
-        .sheet(isPresented: $log) { LogView().presentationDetents([.medium]) }
-        .sheet(isPresented: $sees) { SeesView().presentationDetents([.medium]) }
-    }
-
-    private func tile(_ img: String, _ lab: String, _ note: String, _ a: @escaping () -> Void) -> some View {
-        Button(action: a) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(img).resizable().scaledToFit().frame(width: 44, height: 44)
-                Text(lab).font(.app(15, .semibold)).foregroundStyle(Color.ink)
-                Text(note).font(.app(12)).foregroundStyle(Color.muted).lineLimit(2).multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
-            }
-            .frame(height: 120, alignment: .topLeading)
-            .glassCard(radius: 26, padding: 14)
-        }
-        .buttonStyle(Pressable())
-    }
-}
-
 // MARK: - Costs
 
 struct Program: Identifiable { let id: String; let n: String; let d: String; let src: String }
@@ -78,36 +15,58 @@ struct CostsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Image("pebble_research_glasses_focused").resizable().scaledToFit().frame(width: 64, height: 64)
-                    Text("Help with costs").font(.title(28)).foregroundStyle(Color.navy)
-                    Text("Programs a family caring at home in California may qualify for. Check each one at its source.").font(.body15).foregroundStyle(Color.muted)
-                    ForEach(PROGRAMS) { p in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(p.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                            Text(p.d).font(.app(14)).foregroundStyle(Color.muted)
-                            HStack {
-                                Text(p.src).font(.app(12, .medium)).foregroundStyle(Color.pearlInk)
-                                Spacer()
-                                let added = store.tasks.contains { $0.n == "Look into \(p.n)" }
-                                Button(added ? "Added to your jar" : "Look into it") {
-                                    guard !added else { return }
-                                    let id = "c\(UUID().uuidString.prefix(6))"
-                                    store.tasks.append(CareTask(id: id, n: "Look into \(p.n)", who: "you", w: .small, cat: "paper", kind: .once, date: addDays(7)))
-                                    store.pebbleDid("Added “Look into \(p.n)” to your jar", how: "From Help with costs · you said yes", undo: .task(id))
-                                }
-                                .font(.app(14, .semibold)).disabled(added)
-                            }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Image("pebble_research_glasses_focused").resizable().scaledToFit().frame(width: 56, height: 56)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Eyebrow(text: "Help with costs", color: Color.pearlInk)
+                            Text("\(PROGRAMS.count) programs that may fit").font(.title(24)).foregroundStyle(Color.navy)
                         }
+                    }
+                    Text("Based on: California · care at home · sample answers").font(.meta).foregroundStyle(Color.muted)
+                        .padding(.bottom, 2)
+                    ForEach(PROGRAMS) { p in
+                        let added = store.costTasks[p.id].map { id in store.tasks.contains { $0.id == id } } ?? false
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(p.n).font(.app(15, .semibold)).foregroundStyle(Color(hex: 0x6a5a8c))
+                            Text(p.d).font(.meta).foregroundStyle(Color.muted)
+                            HStack {
+                                Text("Source · \(p.src)").font(.meta).foregroundStyle(Color.muted)
+                                Spacer()
+                                if added {
+                                    Badge(text: "Task added")
+                                } else {
+                                    Button("Make a task") { add(p) }
+                                        .font(.app(13, .semibold)).foregroundStyle(Color.shoalBlue)
+                                        .padding(.horizontal, 12).frame(height: 30)
+                                        .background(Color.blueTint, in: .capsule)
+                                        .buttonStyle(Pressable())
+                                }
+                            }
+                            .padding(.top, 8)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .pearl(radius: 18, padding: 14)
                     }
-                    Text("Sample programs. Pebble doesn't give legal or financial advice.").font(.app(12)).foregroundStyle(Color.muted)
+                    Text("Pebble finds and explains. Only the program can say if you qualify.")
+                        .font(.meta).foregroundStyle(Color.muted).multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity).padding(.top, 4)
                 }
                 .padding(20)
             }
             .background(AppBackground())
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    private func add(_ p: Program) {
+        let name = "Look into " + p.n.replacingOccurrences(of: #"\s*\(.*\)"#, with: "", options: .regularExpression)
+        let id = "c\(UUID().uuidString.prefix(6))"
+        store.tasks.append(CareTask(id: id, n: name, who: "you", w: .small, cat: "paper", kind: .once, date: addDays(7),
+                                    notes: "Source: \(p.src). Only the program can say if \(LOVED) qualifies."))
+        store.costTasks[p.id] = id
+        store.pebbleDid("Added “\(name)” to your jar", how: "From Help with costs · source \(p.src)", undo: .task(id))
+        store.say("Added to your jar")
     }
 }
 
@@ -150,7 +109,7 @@ struct SeesView: View {
         VStack(alignment: .leading, spacing: 14) {
             Image("pebble_sensitive_01").resizable().scaledToFit().frame(width: 60, height: 60)
             Text("What Pebble can see").font(.title(26)).foregroundStyle(Color.navy)
-            ForEach(["Everyone's answers about time and how they like to help", "\(LOVED)'s goals, and the tasks and who has them", "What you tell it in Talk it through"], id: \.self) { l in
+            ForEach(["Everyone's answers about time and how they like to help", "\(LOVED)'s goals, and the tasks and who has them", "What you tell it in this chat"], id: \.self) { l in
                 Label(l, systemImage: "checkmark").font(.body15).foregroundStyle(Color.ink)
             }
             Label("Never \(LOVED)'s care page, notes or medical records. No medical advice.", systemImage: "lock").font(.body15).foregroundStyle(Color.muted)

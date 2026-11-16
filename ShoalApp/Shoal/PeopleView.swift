@@ -35,7 +35,7 @@ struct PeopleView: View {
                         VStack(spacing: 2) {
                             Jar(who: p.id, width: store.mainPeople.count > 4 ? 330 / CGFloat(store.mainPeople.count) : 76)
                             Text(p.name).font(.app(13, .semibold)).foregroundStyle(Color.ink)
-                            Text(p.invited ? "Invited" : n > 0 ? "\(n) to do" : "All done").font(.app(12)).foregroundStyle(Color.muted)
+                            Text(p.invited ? "Invited" : n > 0 ? "\(n) to do" : store.mine(p.id).isEmpty ? "No tasks yet" : "All done").font(.app(12)).foregroundStyle(Color.muted)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -54,7 +54,7 @@ struct PeopleView: View {
                                 .overlay(Circle().strokeBorder(Color(hex: 0x13315d, 0.28), style: .init(lineWidth: 1.5, dash: [3, 3])).padding(-4).opacity(p.invited ? 1 : 0))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(p.name).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                                Text(p.invited ? "Text sent · \(plural(ts.count, "task")) waiting" : "\(p.remote ? "Remote · " : "")\(d) of \(ts.count) done").font(.meta).foregroundStyle(Color.muted)
+                                Text(p.invited ? "\(viaShort(p)) · \(plural(ts.count, "task")) waiting" : "\(p.remote ? "Remote · " : "")\(d) of \(ts.count) done").font(.meta).foregroundStyle(Color.muted)
                             }
                             Spacer()
                             if p.invited {
@@ -87,40 +87,8 @@ struct PeopleView: View {
             .glassCard(padding: 12)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $invite) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Invite someone").font(.title(26)).foregroundStyle(Color.navy)
-                Text("They get a link by text. Family gets a jar; the trusted circle gets light tasks only.").font(.body15).foregroundStyle(Color.muted)
-                ShareLink(item: URL(string: "https://shoal.example/join/K7Q2")!, message: Text("Join our family on Shoal")) {
-                    Text("Share invite link")
-                }
-                .buttonStyle(PrimaryButton())
-            }
-            .padding(24)
-            .presentationDetents([.height(260)])
-        }
-        .sheet(item: $pending) { p in
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 12) {
-                    Avatar(p: p, size: 40).opacity(0.6)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(p.name) hasn't joined yet").font(.app(17, .semibold)).foregroundStyle(Color.ink)
-                        Text("Invited as main caregiver\(p.contact.isEmpty ? "" : " by text to \(p.contact)")").font(.meta).foregroundStyle(Color.muted)
-                    }
-                }
-                Text("You can still give \(p.name) tasks. They'll say yes or no to each one when they join.").font(.app(14)).foregroundStyle(Color.muted)
-                Button("Resend invite") { pending = nil; store.say("Sent \(p.name) a reminder") }.buttonStyle(GhostButton())
-                Button("Cancel invite", role: .destructive) {
-                    pending = nil
-                    for i in store.tasks.indices where store.tasks[i].who == p.id { store.tasks[i].who = nil }
-                    store.people.removeAll { $0.id == p.id }
-                    store.say("Invite canceled. \(p.name)'s tasks are open again.")
-                }
-                .font(.app(15, .semibold)).frame(maxWidth: .infinity)
-            }
-            .padding(24)
-            .presentationDetents([.height(300)])
-        }
+        .sheet(isPresented: $invite) { InviteSheet(tier: .main) }
+        .sheet(item: $pending) { p in PendingInviteSheet(p: p) }
     }
 }
 
@@ -217,8 +185,8 @@ struct PersonView: View {
                         }
                         Spacer()
                         if !p.contact.isEmpty {
-                            pill("Text") { store.say("Opening Messages for \(p.name)") }
-                            pill("Call") { store.say("Calling \(p.name)…") }
+                            pill("Text") { openContact("sms", p.contact, store) }
+                            pill("Call") { openContact("tel", p.contact, store) }
                         }
                     }
                     .glassCard(padding: 14)
@@ -284,5 +252,13 @@ struct PersonView: View {
     private func pill(_ l: String, _ a: @escaping () -> Void) -> some View {
         Button(l, action: a).font(.app(14, .semibold))
             .padding(.horizontal, 14).frame(height: 34).background(Color.blueTint, in: .capsule)
+    }
+}
+
+// Text and Call open Messages and Phone. The simulator has neither, so it says so instead.
+@MainActor func openContact(_ scheme: String, _ number: String, _ store: Store) {
+    guard let u = URL(string: "\(scheme):\(number.filter(\.isNumber))") else { return }
+    UIApplication.shared.open(u) { ok in
+        if !ok { store.say(scheme == "sms" ? "Messages isn't available on this device" : "Calling isn't available on this device") }
     }
 }

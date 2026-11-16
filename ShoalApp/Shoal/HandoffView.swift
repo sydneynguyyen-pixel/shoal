@@ -32,7 +32,10 @@ struct HandoffView: View {
                     t.stone(base: 28).frame(width: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(t.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                        Text("\(t.who == nil ? "Unassigned" : store.name(t.who)) · \(t.dueLabel)").font(.meta).foregroundStyle(Color.muted)
+                        HStack(spacing: 5) {
+                            if let p = store.person(t.who) { Avatar(p: p, size: 16) }
+                            Text("\(t.who == nil ? "Unassigned" : store.name(t.who)) · \(t.dueLabel)").font(.meta).foregroundStyle(Color.muted)
+                        }
                     }
                     Spacer()
                 }
@@ -41,10 +44,10 @@ struct HandoffView: View {
                 if let pick {
                     HStack(spacing: 10) {
                         Image("pebble_offer_open_hands").resizable().scaledToFit().frame(width: 30, height: 30)
-                        (Text(pick.p.name).bold() + Text(" has \(pick.why).")).font(.app(14)).foregroundStyle(Color.ink)
+                        (Text(pick.p.name).bold() + Text(" has \(pick.why).")).font(.app(13)).foregroundStyle(Color.ink)
                         Spacer()
                         if !picked.contains(pick.p.id) {
-                            Button("Ask \(pick.p.name)") { picked = [pick.p.id]; unassigned = false }.font(.app(14, .semibold))
+                            Button("Ask \(pick.p.name)") { picked = [pick.p.id]; unassigned = false }.font(.app(13.5, .semibold))
                         }
                     }
                     .pearl(radius: 16, padding: 12)
@@ -69,13 +72,13 @@ struct HandoffView: View {
                         }) {
                             Avatar(p: p, size: 38).frame(width: 52, alignment: .leading)
                             label2(p.name, ok ? "\(plural(n, "task"))\(p.remote ? " · remote" : "")\(p.tier == .trusted ? " · gets a text" : "")"
-                                   : p.remote ? "Needs someone close by" : "Light tasks only")
+                                   : store.openTo(t).contains(p.tier) ? "Needs someone close by" : p.tier == .kid ? "Kid tasks only" : "Light tasks only")
                         }
                         if p.id != options.last?.id { Divider() }
                     }
                     if t.who != nil && s == nil {
                         Divider()
-                        row(selected: unassigned, enabled: true, action: { unassigned.toggle(); if unassigned { picked = [] } }) {
+                        row(selected: unassigned, enabled: true, box: false, action: { unassigned.toggle(); if unassigned { picked = [] } }) {
                             Stone(state: .open, w: .medium, base: 26).frame(width: 52, alignment: .leading)
                             label2("Unassigned", "Glows white for whoever is free")
                         }
@@ -102,11 +105,21 @@ struct HandoffView: View {
                     Text(target.tier == .main && !target.remote ? "\(target.name) gets it in the app." : "We'll text \(target.name).").font(.meta).foregroundStyle(Color.muted)
                         .frame(maxWidth: .infinity)
                 } else if picked.count > 1 {
-                    Text("They each get the request. Once someone says yes, the rest are told it's covered.").font(.meta).foregroundStyle(Color.muted)
+                    let texts = picked.filter { id in store.person(id).map { $0.tier != .main || $0.remote } ?? false }.count
+                    Text("\(store.names(store.people.map(\.id).filter { picked.contains($0) })) each get the request\(texts == 0 ? "" : texts == 1 ? " (one gets a text)" : " (\(texts) get a text)"). Once someone says yes, the rest are told it's covered.").font(.meta).foregroundStyle(Color.muted)
                         .multilineTextAlignment(.center).frame(maxWidth: .infinity)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { store.back() } label: {
+                        Image(systemName: "arrow.left").font(.system(size: 16, weight: .medium)).foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Back")
+                }
+            }
             .safeAreaInset(edge: .bottom) {
                 Button(label) { send(t) }
                     .buttonStyle(PrimaryButton(enabled: unassigned || !picked.isEmpty))
@@ -125,8 +138,7 @@ struct HandoffView: View {
 
     private func send(_ t: CareTask) {
         if unassigned {
-            if let i = store.idx(id) { store.tasks[i].who = nil }
-            store.say("Left open. It glows white for whoever is free.")
+            store.leaveOpen(id)
         } else {
             let order = store.people.map(\.id).filter { picked.contains($0) }
             store.sendHandoff(id, to: order, note: note, step: step, byPebble: byPebble)
@@ -141,13 +153,15 @@ struct HandoffView: View {
         }
     }
 
-    private func row<C: View>(selected: Bool, enabled: Bool, action: @escaping () -> Void, @ViewBuilder _ c: () -> C) -> some View {
+    private func row<C: View>(selected: Bool, enabled: Bool, box: Bool = true, action: @escaping () -> Void, @ViewBuilder _ c: () -> C) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 c()
                 Spacer()
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 22))
-                    .foregroundStyle(selected ? Color.shoalBlue : Color(hex: 0xc4c8ce))
+                if box { CheckBox(on: selected) } else {
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 22))
+                        .foregroundStyle(selected ? Color.shoalBlue : Color(hex: 0xc4c8ce))
+                }
             }
             .padding(.horizontal, 8).padding(.vertical, 10)
             .contentShape(.rect)

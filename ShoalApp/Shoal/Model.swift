@@ -12,6 +12,29 @@ func daysFromToday(_ d: Date) -> Int {
 }
 func fmtDate(_ d: Date) -> String { d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()) }
 func plural(_ n: Int, _ word: String) -> String { "\(n) \(word)\(n == 1 ? "" : "s")" }
+// Friday of this week, or 3 days out if that's already gone.
+func byFriday() -> Date {
+    let wd = (Calendar.current.component(.weekday, from: TODAY) + 5) % 7   // Mon = 0
+    return wd <= 4 ? addDays(4 - wd) : addDays(3)
+}
+// Times are kept as "HH:mm", like the web, and shown as "9 AM" or "2:30 PM".
+func fmtTime(_ t: String) -> String {
+    let p = t.split(separator: ":").compactMap { Int($0) }
+    guard p.count == 2 else { return "" }
+    return "\(p[0] % 12 == 0 ? 12 : p[0] % 12)\(p[1] == 0 ? "" : String(format: ":%02d", p[1])) \(p[0] < 12 ? "AM" : "PM")"
+}
+func timeDate(_ t: String) -> Date {
+    let p = t.split(separator: ":").compactMap { Int($0) }
+    return Calendar.current.date(bySettingHour: p.first ?? 9, minute: p.count > 1 ? p[1] : 0, second: 0, of: TODAY)!
+}
+func timeString(_ d: Date) -> String {
+    let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+    return String(format: "%02d:%02d", c.hour ?? 9, c.minute ?? 0)
+}
+// "Bill", "Bill and Sam", "Bill, Sam and Nora"
+func andList(_ names: [String]) -> String {
+    names.count < 2 ? names.joined() : names.dropLast().joined(separator: ", ") + " and " + names.last!
+}
 
 enum Tier: String, CaseIterable, Identifiable {
     case main, trusted, kid
@@ -32,6 +55,7 @@ struct Person: Identifiable, Hashable {
     var contact = ""
     var know: [String] = []
     var invited = false
+    var via = "text"        // how the invite went out: text, email or link
 }
 
 enum Weight: Int, CaseIterable, Identifiable {
@@ -50,7 +74,7 @@ struct Step: Identifiable, Hashable {
     var who: String?
     var done = false
     var when: String?
-    var ask: String?        // asked someone, waiting on an answer
+    var ask: [String]?      // asked these people, waiting on an answer
 }
 
 struct Request: Identifiable, Hashable {
@@ -61,9 +85,16 @@ struct Request: Identifiable, Hashable {
 }
 
 struct Handoff: Hashable {
+    enum Status: Hashable { case pending, accepted, declined }
     var to: [String]
     var note: String
-    var pending = true
+    var status = Status.pending
+    var all = false          // asked everyone who can take it
+    var taker: String?       // who answered
+    var when = ""
+    var why = ""
+    var pending: Bool { status == .pending }
+    var who: String? { taker ?? to.first }
 }
 
 struct CareTask: Identifiable, Hashable {
