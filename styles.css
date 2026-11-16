@@ -444,7 +444,7 @@ input { font: inherit; color: inherit; }
 .shelf-jars { display: flex; justify-content: center; gap: 0 1px; flex-wrap: wrap; }
 .rjar { position: relative; width: 84.26px; display: flex; flex-direction: column; align-items: center; }
 .rjar .glassbox { position: relative; width: 84.26px; height: 122.38px; }
-.rjar .glassbox > img.glass { position: absolute; inset: 0; width: 100%; height: 100%; object-position: bottom; pointer-events: none; }
+.rjar .glassbox > img.glass { position: absolute; inset: 0; width: 100%; height: 100%; object-position: bottom; pointer-events: none; border-radius: 8px 8px 38% 38% / 8px 8px 25% 25%; }
 .rjar .who { font-size: 13px; font-weight: 600; margin-top: 4px; }
 .rjar .cnt { font-size: 12px; color: var(--muted); }
 .pebble-btn { position: absolute; width: 36px; height: 28px; padding: 0; animation: drop 0.5s cubic-bezier(.3, 1.4, .5, 1) backwards; }
@@ -1152,7 +1152,7 @@ button, input, textarea { touch-action: manipulation; -webkit-tap-highlight-colo
 .rjar .glassbox::before {
   content: ""; position: absolute; left: 3px; right: 3px; top: 4px; bottom: 3px;
   border: 1.5px solid rgba(19, 49, 93, 0.16); border-top-color: rgba(19, 49, 93, 0.24);
-  border-radius: 5px 5px 9px 9px;
+  border-radius: 7px 7px 36% 36% / 7px 7px 24% 24%;
   background: linear-gradient(90deg, rgba(65, 142, 243, 0.07), rgba(65, 142, 243, 0.02) 30%, rgba(65, 142, 243, 0.02) 70%, rgba(65, 142, 243, 0.08));
   box-shadow: inset 0 -5px 0 rgba(19, 49, 93, 0.07), inset 2px 0 0 rgba(255, 255, 255, 0.7);
   pointer-events: none;
@@ -1583,6 +1583,8 @@ button, input, textarea { touch-action: manipulation; -webkit-tap-highlight-colo
     radial-gradient(110% 55% at 100% 100%, #1d3d70 0%, rgba(29, 61, 112, 0) 70%),
     linear-gradient(180deg, #142a4c 0%, #0b1730 100%); }
 .phone:has(.screen > .kit2) .statusbar { filter: invert(1); }
+/* The phone behind a dark screen is dark too, so no light rim shows at the rounded edge. */
+.phone:has(.screen > .kit2) { background: linear-gradient(180deg, #142a4c 0%, #0b1730 100%); box-shadow: 0 0 0 6px #0f1f3a; }
 .kit2 .navback img, .kit2 .chev { filter: brightness(0) invert(1); opacity: 0.7; }
 .kit2 .k-look { background: rgba(255, 255, 255, 0.1); color: var(--ink); }
 .kit2 .k-ring .trk { stroke: rgba(255, 255, 255, 0.12); }

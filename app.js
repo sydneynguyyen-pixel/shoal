@@ -171,15 +171,18 @@ const guessSize = (n) => (SIZE_WORDS.find(([, re]) => re.test(n)) || [1])[0];
 // resting on the curved tops of the stones below (stones are treated as ellipses), and rolls until it
 // touches a neighbor or the glass. Ties lean to the middle, with a small fixed wobble so piles don't look ruled.
 // sizes: [[w, h], ...] in px. Returns the top-left of each stone, or null once the jar is full to the top.
-function packStones(sizes, { left = 6, right = 80, base = 104, top = 18 } = {}) {
+function packStones(sizes, { left = 6, right = 80, base = 104, top = 18, round = 24 } = {}) {
   const placed = [], mid = (left + right) / 2;
   const arc = (dx, a) => Math.sqrt(Math.max(0, 1 - (dx / a) ** 2));
+  // The jar's floor curves up into its rounded bottom corners, so stones near the glass sit a little higher.
+  const floor = (c) => { const d = Math.max(left + round - c, c - (right - round), 0); return base - round + Math.sqrt(Math.max(0, round * round - d * d)); };
   return sizes.map(([w, h], i) => {
     const a = w / 2, b = h / 2;
     let best = null;
     for (let x = left; x <= right - w; x++) {
       const cx = x + a;
       let cy = base - b;
+      for (let c = cx - a; c <= cx + a; c += 1) cy = Math.min(cy, floor(c) - b * arc(c - cx, a));
       for (const p of placed) {
         if (Math.abs(p.cx - cx) >= p.a + a) continue;
         // Where the two outlines would touch, sampled across their overlap.

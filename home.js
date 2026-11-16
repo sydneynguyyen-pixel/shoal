@@ -1,8 +1,7 @@
 /* Shoal: Home as an overview, like a phone's home screen. A bright ombre, the family jars sitting
    straight on it, and a few widgets in different sizes that each open the screen with the detail.
-   The old Home stays one tap away (the "Old look" pill). Uses helpers from main-app.js and kit.js. */
+   Uses helpers from main-app.js and kit.js. */
 
-const homeOld = SCREENS.home;
 
 function homeNew() {
   const urgent = active().filter(isUrgent).sort((a, b) => a.date.localeCompare(b.date));
@@ -31,7 +30,6 @@ function homeNew() {
   return `<div class="home2">
   <div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
-      <button class="k-look" data-act="homeLook">Old look</button>
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
     ${notifStack(urgent, finished)}
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
@@ -122,15 +120,12 @@ document.addEventListener("pointerup", endNSwipe);
 document.addEventListener("pointercancel", endNSwipe);
 window.addEventListener("click", (e) => { if (nSwallow) { e.stopPropagation(); e.preventDefault(); nSwallow = false; } }, true);
 
-SCREENS.home = () => (S.app.homeLook === "old"
-  ? homeOld().replace(`<span class="head-btns">`, `<span class="head-btns"><button class="k-look" data-act="homeLook">New look</button>`)
-  : homeNew());
+SCREENS.home = homeNew;
 
 Object.assign(ACTIONS, {
   stackOpen: () => { S.app.stackOpen = !S.app.stackOpen; render(); },
   clearNote: (d) => clearNote(d.key),
   weekAll: () => { S.app.weekAll = !S.app.weekAll; render(); },
-  homeLook: () => { S.app.homeLook = S.app.homeLook === "old" ? "new" : "old"; render(); },
 });
 
 NOTES.home = ["Home", ["An overview, like a phone's home screen: a bright ombre, the family jars, and widgets that each open the screen with the detail.",

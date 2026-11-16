@@ -220,7 +220,7 @@ function careWidget() {
 const homeCare = SCREENS.home;
 SCREENS.home = () => {
   const h = homeCare();
-  return S.app.homeLook === "old" ? h : h.replace(`<section class="h-w wide" aria-label="This week">`, `${careWidget()}<section class="h-w wide" aria-label="This week">`);
+  return h.replace(`<section class="h-w wide" aria-label="This week">`, `${careWidget()}<section class="h-w wide" aria-label="This week">`);
 };
 
 // Ana's view gets the same glance, view only.

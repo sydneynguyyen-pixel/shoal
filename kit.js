@@ -1,8 +1,7 @@
 /* Shoal: a cleaner Home kit. Readings sit flat on the background, alerts are notifications, and
-   tiles of different sizes are the things you change. The old screen stays one
-   tap away (the "Old look" pill) so the two can be compared. Uses helpers from main-app.js and colors.js. */
+   tiles of different sizes are the things you change.
+   Uses helpers from main-app.js and colors.js. */
 
-const kitOld = SCREENS.kit;
 
 // A thin progress ring. It fills in from empty when it first draws.
 function kitRing(f, size, w, cls = "") {
@@ -26,7 +25,7 @@ function kitNew() {
   const row = (inner, act, attrs = "") => `<button class="k-set" data-act="${act}" ${attrs}>${inner}${chev}</button>`;
   const [from, fromAm] = fmtTime(P.nightFrom).split(" "), to = fmtTime(P.nightTo);
   return `<div class="kit2">
-  ${navtop("Home", `<button class="k-look" data-act="kitLook">Old look</button>`)}
+  ${navtop("Home")}
   <div class="content">
     <h1 class="title">Home kit</h1>
     <p class="k-status"><i></i>Base connected</p>
@@ -73,7 +72,7 @@ function kitNew() {
   </div></div>`;
 }
 
-SCREENS.kit = () => (S.app.kitLook === "old" ? kitOld().replace(navtop("Home"), navtop("Home", `<button class="k-look" data-act="kitLook">New look</button>`)) : kitNew());
+SCREENS.kit = kitNew;
 
 // On the kit, Glow changes the jars in place so the stones fade up or down instead of snapping.
 const setGlowApp = ACTIONS.setGlow;
@@ -88,7 +87,6 @@ Object.assign(ACTIONS, {
     hero.querySelectorAll(".k-seg button").forEach((b) => { const on = b.dataset.id === d.id; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
     toast(d.id === "on" ? "Stones glow" : d.id === "dim" ? "Stones dimmed" : "Glow off. Colors still show in the app.");
   },
-  kitLook: () => { S.app.kitLook = S.app.kitLook === "old" ? "new" : "old"; render(); },
 });
 
 NOTES.kit = ["Home kit", ["A test of a cleaner look. Readings (charging, battery, spares) sit flat on the background with nothing to tap. The off-power alert is a notification.",
