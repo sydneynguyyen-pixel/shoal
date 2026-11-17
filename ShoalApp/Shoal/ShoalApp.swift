@@ -16,8 +16,17 @@ struct ShoalApp: App {
     }
 
     // Widgets and the Live Activity link here: shoal://care, shoal://myjar, shoal://task/<id>
+    // Test links (Appetize launchUrl): shoal://start/new opens first-run, shoal://start/family the full family.
     private func open(_ url: URL) {
         let s = delegate.store
+        if url.host() == "start" {
+            s.reset()
+            if url.lastPathComponent == "family" {
+                s.onboarded = true; s.kit = true
+                if !s.sample { s.useAccount(sample: true) }
+            }
+            return
+        }
         s.onboarded = true
         switch url.host() {
         case "care": s.tab = 0; s.paths[0] = [.care(nurse: false)]
