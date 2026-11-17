@@ -122,3 +122,44 @@
 .hand-note { display: flex; align-items: center; gap: 8px; }
 .hand-note .peb-chip { margin-left: auto; }
 .peb-chip.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+
+/* Pebble tab: a chat, as in the Swift app */
+.peb-chat { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.peb-chat.empty::before { content: ""; position: absolute; left: -20%; right: -20%; bottom: 0; height: 460px; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 100%, rgba(217, 200, 243, 0.75), rgba(246, 220, 203, 0.55) 35%, rgba(207, 230, 240, 0.35) 60%, transparent 75%); }
+.pc-head { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 60px 20px 4px; }
+.pc-head img { width: 32px; height: 32px; object-fit: contain; }
+.pc-head h1 { flex: 1; margin: 0; font-family: "Fraunces", serif; font-weight: 400; font-size: 24px; color: var(--navy); }
+.pc-more { width: 44px; height: 44px; border-radius: 22px; background: rgba(255, 255, 255, 0.8); border: 1px solid #fff; box-shadow: var(--chip-shadow); font-size: 12px; letter-spacing: 1px; color: var(--ink); }
+.pc-body { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 12px 20px; }
+.peb-chat.empty .pc-body { justify-content: center; }
+.pc-welcome { text-align: center; padding: 0 4px; }
+.pc-welcome .peb-fig.xl { width: 120px !important; }
+.pc-welcome h2 { margin: 12px 0 6px; font-family: "Fraunces", serif; font-weight: 400; font-size: 30px; color: var(--navy); }
+.pc-welcome .sub { margin: 0; }
+.pc-said { align-self: flex-end; max-width: 300px; padding: 10px 14px; border-radius: 20px; background: rgba(235, 232, 227, 0.9); font-size: 15px; line-height: 21px; color: var(--ink); }
+.pc-peb { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.pc-peb .pc-fig { width: 34px !important; }
+.pc-reply { margin: 0; font-size: 16px; line-height: 22px; color: var(--ink); }
+.pc-prop { margin-bottom: 0; }
+.pc-prop:disabled:not(.off) { opacity: 1; }
+.pc-skip { margin: 0; color: var(--ink); }
+.pc-lock { display: flex; align-items: center; gap: 6px; margin: 0; }
+.pc-lock img { width: 14px; height: 14px; }
+.pc-call { width: 180px; }
+.pc-yes { align-self: stretch; }
+.pc-peb .peb-done { margin: 0; }
+.pc-links { display: flex; gap: 16px; }
+.pc-links .linkish.muted { color: var(--muted); }
+.pc-compose { position: relative; flex: none; padding: 8px 16px 108px; }
+.pc-samples { margin-bottom: 12px; }
+.peb-chat:not(.blank) .pc-samples, .peb-chat.live .pc-samples { display: none; }
+.pc-field { display: flex; align-items: flex-end; gap: 8px; padding: 0 7px 0 18px; border-radius: 26px; background: #fff; border: 1px solid #e6e3de; box-shadow: 0 6px 14px rgba(33, 38, 46, 0.08); }
+.pc-field .peb-say { flex: 1; min-height: 0; height: 48px; max-height: 140px; margin: 0; padding: 13px 0; font-family: inherit; font-variation-settings: normal; font-size: 16px; line-height: 22px; color: var(--ink); }
+.pc-mic, .pc-send { flex: none; width: 34px; height: 34px; margin-bottom: 7px; border-radius: 17px; display: grid; place-items: center; color: #fff; }
+.pc-mic { background: var(--blue); }
+.peb-chat.live .pc-mic { background: #d9534f; animation: peb-breathe 1.6s ease-in-out infinite; }
+.pc-mic .sq { width: 11px; height: 11px; border-radius: 2px; background: #fff; }
+.pc-send { background: var(--navy); }
+.peb-chat:not(.blank):not(.live) .pc-mic, .peb-chat.blank .pc-send { display: none; }
+.pc-menu { margin: 0; }

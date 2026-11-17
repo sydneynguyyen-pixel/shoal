@@ -80,11 +80,14 @@ struct PeopleView: View {
                           sub: circle.isEmpty ? "No one yet · \(plural(tasks, "task"))" : "\(circle[0].name)\(circle.count > 1 ? " + \(circle.count - 1) other\(circle.count > 2 ? "s" : "")" : "") · \(plural(tasks, "task"))",
                           badge: "On", stack: Array(circle.prefix(4))) { store.say("Trusted circle gets light tasks and a text when one opens up") }
                 RowSep()
-                circleRow(letter: "A", title: "Hospice nurse", sub: "Ana · see what she sees") { store.go(.care(nurse: true)) }
-                RowSep()
-                circleRow(icon: "heart", title: "\(LOVED)'s care", sub: "Meds, allergies, needs and preferences") { store.go(.care(nurse: false)) }
+                circleRow(letter: "A", title: "Ana", sub: "Hospice nurse · see what she sees") { store.go(.care(nurse: true)) }
             }
             .glassCard(padding: 12)
+
+            // What the family knows about the person they care for, apart from the people helping.
+            SectionH(text: "About \(LOVED)")
+            circleRow(icon: "heart", title: "\(LOVED)'s care", sub: "Meds, allergies, needs and preferences") { store.go(.care(nurse: false)) }
+                .glassCard(padding: 12)
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $invite) { InviteSheet(tier: .main) }

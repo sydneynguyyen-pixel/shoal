@@ -308,6 +308,22 @@ Object.assign(NOTES, {
   intro: ["Meet Shoal", ["Five swipeable slides before setup: what Shoal is, stones, jars, real stones at home, and privacy and security.", "Pebble isn't introduced here, since it's optional. It's offered on the next screen."]],
 });
 
+// Links for user testing. ?start=family opens the full sample family's Home (onboarded, kit on).
+// ?start=new, or no start, opens first open. Any start link, or ?test=1, hides the notes panel.
+const URLQ = new URLSearchParams(location.search);
+const START = URLQ.get("start");
+if (START || URLQ.get("test") === "1") document.body.classList.add("test");
+
 fit();
-scheduleSplash();
-render();
+if (START === "family") {
+  // Wait for the rest of the scripts (Home, roles, kit), then open Home.
+  document.addEventListener("DOMContentLoaded", () => {
+    S.kit = "yes";
+    appEnter("home");
+    S.screen = "home";
+    render();
+  });
+} else {
+  scheduleSplash();
+  render();
+}

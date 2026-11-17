@@ -401,7 +401,10 @@ function hoursOf(t) {
 }
 
 // Trusted circle only gets light tasks; kids and teens only get kid tasks.
-const canTake = (p, t) => (t.open ? t.open.includes(p.tier) : p.tier === "trusted" ? t.w === 1 : p.tier === "kid" ? t.y : true);
+const tierFits = (p, t) => (t.open ? t.open.includes(p.tier) : p.tier === "trusted" ? t.w === 1 : p.tier === "kid" ? t.y : true);
+// Driving, cooking and being there need someone close by.
+const nearTask = (t) => !t.remote && ["drive", "there", "cook"].includes(t.k);
+const canTake = (p, t) => tierFits(p, t) && !(nearTask(t) && p.remote);
 const TIER_NOTE = { main: "Invite sent by text", trusted: "Invite sent by text", kid: "Kid tasks only" };
 
 // Greedy fair split: heaviest first, to whoever has the most room left. Preferences nudge "You" toward or away.
@@ -583,7 +586,7 @@ SCREENS.about = () => `${topbar({ skip: false })}
     }).join("")}
     ${writeIns("cond", "Write your own")}
   </div>
-  ${footer("Next", { disabled: !S.lovedOne.trim() || !S.stage })}`;
+  ${footer("Next", { disabled: !S.lovedOne.trim() })}`;
 
 SCREENS.them = () => `${topbar()}
   <div class="content">
@@ -1095,7 +1098,7 @@ function toast(msg) {
 
 const ACTIONS = {
   next, back,
-  begin: () => { S.flowKey = "onboard"; go("about"); },
+  begin: () => { S.flowKey = "onboard"; S.stage ??= "final"; go("about"); },
   start: (d) => {
     S.path = S.flowKey = d.path;
     if (!S.tasks.some((t) => t.on && t.cat)) clearLibrary();

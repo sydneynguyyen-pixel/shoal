@@ -372,7 +372,7 @@ function monthMove() {
   for (const t of ts) for (const p of tos) if (roomOf(p) >= (WEIGHT_HOURS[t.w || 2] || 1) && canTake(p, t) && (!p.remote || t.remote)) return { t, from, to: p };
   return null;
 }
-SCREENS.pebbleMonth = () => `${navtop("People")}
+SCREENS.pebbleMonth = () => `${navtop(S.history.at(-1) === "pebble" ? "Pebble" : "People")}
   <div class="content">
     <div class="peb-head">${pebFig("organizing", "s56")}<div><p class="eyebrow">${TODAY.toLocaleDateString("en-US", { month: "long" })} check-in</p><h1 class="title sm">A few things I noticed this month</h1></div></div>
     <div class="card tlist peb-said">${monthNotes().map((x) => `<div class="srow">${gem(x.st, { size: "s" })}<span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${esc(x.m)}</span></span></div>`).join("")}</div>
@@ -399,9 +399,8 @@ Object.assign(NOTES, {
 });
 
 // Pebble's bits on existing screens, noted where they show up.
-NOTES.home[1].push("Pebble: “Ask Pebble” in the header opens a talk-it-through screen. A “Pebble noticed” card shows one thing at a time, like an urgent step no one has, with Find someone or Not now. Find someone opens Hand off with Pebble's pick.");
+NOTES.home[1].push("Pebble: “Ask Pebble” in the header opens the Pebble tab. A “Pebble noticed” card shows one thing at a time, like an urgent step no one has, with Find someone or Not now. Find someone opens Hand off with Pebble's pick.");
 NOTES.task[1].push("Pebble: asking for help is always Hand off, where Pebble suggests who has room and can write the note. Money tasks also get Find help paying. Underlined words in the notes open a plain-words explanation with its source.");
-NOTES.myjar[1].push("Pebble: answering “Stretched thin” gets one suggestion of a task someone with room could take. Only you see it.");
 NOTES.peopleTab[1].push("Pebble: the monthly check-in card opens what Pebble noticed this month, for the whole family to look at together.");
 NOTES.settings[1].push("Pebble: “What Pebble did” lists every change Pebble made after someone said yes, with Undo.");
 
@@ -410,6 +409,7 @@ Object.assign(APP_INPUT, {
     PB().talk.text = v;
     const b = document.querySelector('[data-act="pebbleHearIt"]');
     if (b) b.disabled = !v.trim();
+    syncPebCompose();
   },
 });
 
@@ -418,7 +418,7 @@ Object.assign(APP_INPUT, {
 function stopMic() { if (rec) { try { rec.stop(); } catch (e) { /* already stopped */ } rec = null; } PB().talk.listening = false; }
 
 Object.assign(ACTIONS, {
-  pebbleAsk: () => { const T = PB().talk; Object.assign(T, { text: "", phase: "listen", props: [], skipped: [], done: [] }); S.app.pebNew = null; go("pebbleTalk"); },
+  pebbleAsk: () => { tabTo("pebble"); document.querySelector(".peb-say")?.focus(); },
   pebbleSample: (d) => { PB().talk.text = PEB_SAMPLES[+d.id][1]; render(); },
   pebbleMic: () => {
     const T = PB().talk;
@@ -505,36 +505,131 @@ Object.assign(ACTIONS, {
     if (u.type === "task") S.tasks = S.tasks.filter((y) => y.id !== u.id);
     if (u.type === "step" && t) { const i = t.steps.findIndex((s) => s.n === u.n); if (i >= 0) t.steps.splice(i, 1); }
     if (u.type === "who" && t) t.who = u.who;
-    x.undone = true; render(); toast("Undone");
+    x.undone = true; render(); if (S.app.logSheet && document.getElementById("sheet").classList.contains("open")) pebbleLogSheet(); toast("Undone");
   },
   pebbleClearLog: () => { PB().log = []; render(); },
 });
 
 /* ---------- Pebble's own tab ---------- */
 
-// Everything Pebble does, in one place. The tab shows only while Pebble is on in Settings.
+// Pebble's own tab is a chat, as in the Swift app: say or type what's going on, and each message gets an answer
+// with draft changes to say yes to. Help with costs, What Pebble did and the rest are in the ••• menu.
+const pebChat = () => (PB().chat ||= []);
+const MIC_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>`;
+const SEND_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+function pebExchange(e, i, live) {
+  const said = `<div class="pc-said">${esc(e.said)}</div>`;
+  const fig = pebFig(e.stage === "sensitive" ? "sensitive" : e.stage === "done" ? "confirmed" : "awaiting_confirmation", "pc-fig");
+  let body = "";
+  if (e.stage === "sensitive") {
+    body = `<p class="pc-reply">That sounds really hard. I can't help with symptoms or medicine. ${esc(L())}'s hospice team can, any time of day or night.</p>
+      <p class="small pc-lock"><img src="${A("lock.svg")}" alt="">I didn't save what you said, and I never contact hospice on my own.</p>
+      <button class="btn-primary pc-call" data-act="pebbleCallHospice">Call hospice</button>`;
+  } else if (e.stage === "review") {
+    const on = e.props.filter((p) => p.on && p.kind !== "dup").length;
+    body = `<p class="pc-reply">${e.props.length ? "Here's what I'd add. Tap one to leave it out." : "I didn't find anything to add. Try saying what needs doing."}</p>
+      ${e.props.map((p, j) => `<button class="card peb-prop pc-prop ${p.on || p.kind === "dup" ? "" : "off"}" data-act="pebChatProp" data-id="${i}:${j}" ${p.kind === "dup" || !live ? "disabled" : ""} aria-pressed="${p.on}">
+        ${p.kind === "dup" ? gem("done", { size: "s" }) : check(p.on)}<span class="tl-txt"><span class="n">${esc(p.n)}</span><span class="m ${p.kind === "step" || p.kind === "dup" ? "amber" : ""}">${esc(p.m)}</span>${p.step ? `<span class="m">Step: ${esc(p.step)}</span>` : ""}</span></button>`).join("")}
+      ${e.skipped.length ? `<p class="small pc-skip"><b>I left ${e.skipped.length === 1 ? "one thing" : `${e.skipped.length} things`} out.</b> ${e.skipped.some((x) => PEB_MEDS.test(x)) ? `Anything about medicine or symptoms is a question for ${esc(L())}'s hospice nurse. ` : ""}“${esc(e.skipped[0])}”</p>` : ""}
+      ${live && on ? `<button class="btn-primary pc-yes" data-act="pebChatYes" data-id="${i}">${on === 1 ? "Yes, add this" : `Yes, add these ${on}`}</button>` : ""}`;
+  } else {
+    body = `<p class="pc-reply">Done. Here's where they went.</p>
+      <div class="card tlist peb-done">${e.done.map((x) => `<div class="srow">${gem(x.st, { size: "s", cls: "w1" })}<span class="tl-txt"><span class="n">${esc(x.n)}</span><span class="m">${esc(x.m)}</span></span></div>`).join("")}</div>
+      <div class="pc-links">${live && e.newId && hasKit() ? `<button class="linkish" data-act="pebChatPair" data-id="${e.newId}">Pair a stone</button>` : ""}<button class="linkish muted" data-act="pebbleLogSheet">Undo in What Pebble did</button></div>`;
+  }
+  return `${said}<div class="pc-peb">${fig}${body}</div>`;
+}
 SCREENS.pebble = () => {
-  const open = active().find((t) => !t.who && !t.done), n = PB().log.length;
-  const tile = (act, to, fig, lab, note) => `<button class="h-w peb-tile" data-act="${act}" ${to ? `data-to="${to}"` : ""}>${pebFig(fig, "s44")}<span class="k-lab">${lab}</span><span class="k-note">${note}</span></button>`;
-  return `<div class="content app peb-page">
-    <div class="peb-hero">${pebFig("idle", "xl")}
-      <h1 class="title">Hi, I'm Pebble</h1>
-      <p class="sub">Tell me what's going on. I'll sort it into tasks.</p>
-      <button class="btn-primary" data-act="pebbleAsk">Talk it through</button></div>
-    ${pebbleHomeCard()}
-    <div class="k-grid">
-      ${tile("pebbleDraftOpen", "", "awaiting_confirmation", "Find someone", open ? esc(open.n) : "Nothing open")}
-      ${tile("go", "pebbleCosts", "researching", "Help with costs", `${PEB_PROGRAMS.length} programs`)}
-      ${tile("go", "pebbleMonth", "organizing", "Monthly check-in", "For when you're together")}
-      ${tile("pebbleLogOpen", "", "confirmed", "What I did", n ? `${n} change${n === 1 ? "" : "s"} · undo any` : "Nothing yet")}
+  const chat = pebChat(), T = PB().talk, blank = !T.text.trim();
+  return `<div class="peb-chat ${chat.length ? "" : "empty"} ${blank ? "blank" : ""} ${T.listening ? "live" : ""}">
+    <div class="pc-head"><img src="${A("pebble/pebble_base_front.png")}" alt=""><h1>Pebble</h1><button class="pc-more" data-act="pebbleMenu" aria-label="More">•••</button></div>
+    <div class="content pc-body">${chat.length
+      ? chat.map((e, i) => pebExchange(e, i, i === chat.length - 1)).join("")
+      : `<div class="pc-welcome">${pebFig("idle", "xl")}<h2>What's going on?</h2><p class="sub">Tell me what's on your plate. I'll turn it into tasks and find who can help.</p></div>`}</div>
+    <div class="pc-compose">
+      ${chat.length ? "" : `<div class="chips pc-samples">${PEB_SAMPLES.map(([l], i) => `<button class="chip" data-act="pebbleSample" data-id="${i}">${l}</button>`).join("")}</div>`}
+      <div class="pc-field"><textarea class="peb-say" rows="1" data-input="pebbleSay" placeholder="${T.listening ? "Listening…" : "Tell Pebble what's going on"}" aria-label="Tell Pebble what's going on">${esc(T.text)}</textarea>
+        <button class="pc-mic" data-act="pebChatMic" aria-label="${T.listening ? "Stop listening" : "Talk to Pebble"}">${T.listening ? "<i class='sq'></i>" : MIC_SVG}</button>
+        <button class="pc-send" data-act="pebChatSend" aria-label="Send">${SEND_SVG}</button></div>
     </div>
-    <button class="h-w wide peb-sees" data-act="pebbleSees"><span class="k-lab">What Pebble can see</span><span class="k-go" aria-hidden="true">${chev}</span></button>
   </div>
   ${tabbar()}`;
 };
+function pebbleLogSheet() {
+  const log = PB().log;
+  S.app.logSheet = true;
+  openSheet(`<h3>What Pebble did</h3><p class="small">Everything Pebble suggested that you said yes to. Undo anything here.</p>
+    ${log.length ? `<div class="card tlist">${log.map((x) => `<div class="srow peb-log"><span class="tl-txt"><span class="m">${esc(x.when)}</span><span class="n">${esc(x.what)}</span><span class="m">${esc(x.how)}</span></span>
+      ${x.undo && !x.undone ? `<button class="linkish" data-act="pebbleUndo" data-id="${x.id}">Undo</button>` : x.undone ? `<span class="small">Undone</span>` : ""}</div>`).join("")}</div>`
+    : `<p class="small">Nothing yet. When Pebble adds a task or a step and you say yes, it shows up here.</p>`}
+    <button class="btn-primary" data-act="closeSheet">Done</button>`);
+}
+const syncPebCompose = () => {
+  const T = PB().talk, box = document.querySelector(".peb-chat");
+  if (box) { box.classList.toggle("blank", !T.text.trim()); box.classList.toggle("live", !!T.listening); }
+};
+Object.assign(ACTIONS, {
+  pebbleMenu: () => {
+    const item = (act, t, d, to = "") => `<button class="srow" data-act="${act}" ${to ? `data-to="${to}"` : ""}><span class="tl-txt"><span class="n">${t}</span><span class="m">${d}</span></span>${chev}</button>`;
+    openSheet(`<div class="card tlist pc-menu">
+      ${pebChat().length ? item("pebChatNew", "New chat", "Clear this chat and start over") : ""}
+      ${item("pebMenuGo", "Help with costs", "Programs that may pay for care", "pebbleCosts")}
+      ${item("pebbleLogSheet", "What Pebble did", "Everything it added, with Undo")}
+      ${item("pebbleSees", "What Pebble can see", "Only what you tell it here")}
+      ${item("pebMenuGo", "Monthly check-in", "How the work was shared this month", "pebbleMonth")}
+    </div>`);
+  },
+  pebMenuGo: (d) => { closeSheet(); go(d.to); },
+  pebbleLogSheet,
+  pebChatNew: () => { stopMic(); PB().chat = []; PB().talk.text = ""; closeSheet(); render(); },
+  pebChatMic: () => {
+    const T = PB().talk;
+    if (T.listening) { stopMic(); render(); return; }
+    if (!SR) { toast("Talking works in Chrome or Safari. You can type here instead."); document.querySelector(".peb-say")?.focus(); return; }
+    rec = new SR();
+    rec.lang = "en-US"; rec.interimResults = true; rec.continuous = true;
+    const start = T.text ? `${T.text.trim()} ` : "";
+    rec.onresult = (e) => {
+      T.text = start + [...e.results].map((r) => r[0].transcript).join(" ");
+      const el = document.querySelector(".peb-say"); if (el) el.value = T.text;
+      syncPebCompose();
+    };
+    rec.onerror = () => { stopMic(); render(); toast("Couldn't hear you. You can type instead."); };
+    rec.onend = () => { if (T.listening) { T.listening = false; render(); } };
+    T.listening = true; rec.start(); render();
+  },
+  pebChatSend: () => {
+    stopMic();
+    const T = PB().talk, said = T.text.trim();
+    if (!said) return;
+    T.text = "";
+    pebbleHear(said);
+    pebChat().push(T.phase === "sensitive" ? { said, stage: "sensitive" } : { said, stage: "review", props: T.props, skipped: T.skipped });
+    render();
+    const b = document.querySelector(".pc-body"); if (b) b.scrollTop = b.scrollHeight;
+  },
+  pebChatProp: (d) => {
+    const [i, j] = d.id.split(":").map(Number), p = pebChat()[i].props[j];
+    if (p.kind !== "dup") p.on = !p.on;
+    render();
+  },
+  pebChatYes: (d) => {
+    const e = pebChat()[+d.id], T = PB().talk;
+    const before = new Set(S.tasks.map((t) => t.id));
+    T.props = e.props;
+    pebbleCommit();
+    e.done = T.done;
+    e.newId = S.tasks.find((t) => !before.has(t.id) && t.who === "you")?.id || null;
+    e.stage = "done";
+    S.app.pebNew = null;
+    render();
+    const b = document.querySelector(".pc-body"); if (b) b.scrollTop = b.scrollHeight;
+  },
+  pebChatPair: (d) => { S.app.pebNew = d.id; ACTIONS.pebblePair(); },
+});
 ACTIONS.pebbleDraftOpen = () => {
   const t = active().find((x) => !x.who && !x.done);
   if (t) pebbleHandoff(t.id); else toast("Every task has someone. Nothing to ask for.");
 };
-NOTES.pebble = ["Pebble", ["Pebble's own tab. It's in the tab bar only while Pebble is on (Settings › Pebble); turn it off and the tab goes away.", "Talk it through turns what's going on into draft tasks. The tiles open the other things Pebble does: draft an ask, help with costs, the monthly check-in, and everything it changed, with Undo.", "Pebble never sees Dad's care page and never gives medical advice."]];
+NOTES.pebble = ["Pebble", ["Pebble's own tab, a chat. It's in the tab bar only while Pebble is on (Settings › Pebble); turn it off and the tab goes away.", "Type or talk, or tap a sample. Each message gets draft changes to say yes to. The ••• menu has help with costs, What Pebble did (with Undo), what Pebble can see, and the monthly check-in.", "Pebble never sees Dad's care page and never gives medical advice."]];
 

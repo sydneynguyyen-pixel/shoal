@@ -20,44 +20,26 @@ struct SetupCard: View {
                 }
                 .glassCard()
             } else {
-                let next = store.shownSteps.first { !setup.contains($0.id) && ($0.needs == nil || setup.contains($0.needs!)) }
+                // One step at a time: only the next one shows, so a new account isn't a wall of locked rows.
+                if let x = store.shownSteps.first(where: { !setup.contains($0.id) && ($0.needs == nil || setup.contains($0.needs!)) }) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionH(text: "Finish setting up", trailing: "\(n) of \(total)")
-                    VStack(alignment: .leading, spacing: 4) {
-                        GeometryReader { g in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color(hex: 0xdfe8f3))
-                                Capsule().fill(Color.shoalBlue).frame(width: max(8, g.size.width * CGFloat(n) / CGFloat(max(total, 1))))
+                    SectionH(text: n == 0 ? "Start here" : "Next up", trailing: "\(n) of \(total)")
+                    Button { open(x, locked: false) } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(x.t).font(.app(17, .semibold)).foregroundStyle(Color.ink)
+                                Text(x.m).font(.app(13)).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
                             }
+                            Spacer()
+                            Chevron()
                         }
-                        .frame(height: 6).padding(.bottom, 6)
-                        ForEach(store.shownSteps) { x in
-                            let done = setup.contains(x.id), locked = x.needs != nil && !setup.contains(x.needs!)
-                            Button { open(x, locked: locked) } label: {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle().strokeBorder(done ? Color.shoalBlue : Color(hex: 0xc3cad4), lineWidth: 1.5)
-                                        if done { Circle().fill(Color.shoalBlue); Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white) }
-                                    }
-                                    .frame(width: 24, height: 24)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(x.t).font(.app(15, .semibold)).foregroundStyle(locked ? Color.muted : Color.ink)
-                                        Text(locked ? "Add tasks first" : done ? "Done · tap to change" : x.m).font(.app(12.5)).foregroundStyle(Color.muted)
-                                            .multilineTextAlignment(.leading)
-                                    }
-                                    Spacer()
-                                    if x.id == next?.id { Text("Next").font(.app(12, .semibold)).foregroundStyle(Color.shoalBlue) }
-                                    Chevron()
-                                }
-                                .padding(.vertical, 7)
-                                .opacity(locked ? 0.6 : 1)
-                            }
-                            .buttonStyle(Pressable())
-                        }
+                        .padding(.vertical, 4)
                     }
+                    .buttonStyle(Pressable())
                     .glassCard()
                 }
                 .sheet(isPresented: $kitAsk) { KitAskSheet().presentationDetents([.medium, .large]) }
+                }
             }
         }
     }

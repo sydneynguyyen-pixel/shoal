@@ -108,7 +108,7 @@ function ensureAppData() {
     day: iso(TODAY), jarTab: "all", stoneFilter: "all", showDone: false, morePair: false,
     first: null, heard: false, blink: null, task: null, person: null, stone: null, draft: null, stoneFor: null,
     handTo: undefined, note: "", thankFor: null, thankPick: 0, thanksNote: "", shareThanks: true, thanked: {}, dismissed: {}, seenNotes: false,
-    requests: helper ? [{ id: "r1", from: helper.id, n: "Call the pharmacy", note: "They'll only talk to the main contact." }] : [],
+    requests: demo && helper ? [{ id: "r1", from: helper.id, n: "Call the pharmacy", note: "They'll only talk to the main contact." }] : [],
     prefs: { ring: false, little: true, weekly: true, names: true, quiet: false, quietFor: "week", publicCode: false, night: true, nightFrom: "22:00", nightTo: "07:00", glow: "on" },
     demo,
   };
@@ -166,7 +166,7 @@ const inJar = (s) => { const t = taskOf(s); return t && t.who && person(t.who).t
 const outLabel = (s) => (s.task ? "out of its jar" : "off the base");
 const placeOf = (s) => (s.out ? `${outLabel(s)[0].toUpperCase()}${outLabel(s).slice(1)} · not charging` : inJar(s) ? `In ${possessive(person(taskOf(s).who))} jar · charging` : "On the base · charging");
 const battLabel = (s) => (s.out ? `${s.battery}%` : `⚡ ${s.battery}%`);
-const WHY = { drive: "Lives nearby", phone: "Good on the phone", cook: "Likes to cook", meds: "Knows the meds", paper: "Good with paperwork", there: "Wants to be there" };
+const WHY = { meds: "Knows the routine", drive: "Has a car", cook: "Likes to cook", there: "Lives close", phone: "Free during the day", paper: "Good with forms" };
 const whyOf = (t, p) => t.why || (p.remote || t.remote ? "Can do it from anywhere" : WHY[t.k] || "Had free time then");
 
 /* ---------- Pieces ---------- */
@@ -236,7 +236,7 @@ function familyJars({ empty = false, only = null, act = true } = {}) {
     return `<${tag} class="rjar" ${act ? `data-act="openPerson" data-id="${p.id}"` : ""}>
       <div class="glassbox"><img class="glass" src="${A("jar.png")}" alt="">
         ${ts.map((t, i) => (pos[i] ? gemOf(t, { size: "s", cls: `${S.app?.blink === t.id ? "blink" : ""} ${dropped.has(`${p.id}:${t.id}`) ? "still" : ""}`, style: `left:${pos[i].x}px;top:${pos[i].y}px` }) : "")).join("")}${jarMore(more)}
-      </div><span class="who">${esc(p.name)}</span>${empty ? "" : `<span class="jar-n">${(() => { const n = all.filter((t) => !t.done).length; return typeof pending === "function" && pending(p) ? "Invited" : n ? `${n} to do` : "All done"; })()}</span>`}</${tag}>`;
+      </div><span class="who">${esc(p.name)}</span>${empty ? "" : `<span class="jar-n">${(() => { const n = all.filter((t) => !t.done).length; return typeof pending === "function" && pending(p) ? "Invited" : n ? `${n} to do` : all.length ? "All done" : "No tasks yet"; })()}</span>`}</${tag}>`;
   }).join("")}</div>`;
   ppl.forEach((p) => { if (!empty) mine(p.id).forEach((t) => dropped.add(`${p.id}:${t.id}`)); });
   return html;
@@ -276,16 +276,12 @@ function setupCard() {
   if (n === total && (S.kit || S.setup.stones)) return `<div class="card setup-card all-set">
     <span class="tl-txt"><span class="n">You're all set up</span><span class="m">Change anything from My jar, People, or Settings.</span></span>
     <button class="linkish" data-act="hideSetup">Hide</button></div>`;
+  // One step at a time: only the next one shows, so a new account isn't a wall of locked rows.
   const nextUp = shownSteps().find((x) => !S.setup[x.id] && (!x.needs || S.setup[x.needs]));
-  return homeSec("setup", "Finish setting up", `<span class="hs-count">${n} of ${total}</span>`, `<div class="card setup-card">
-    <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, (n / total) * 100)}%"></i></div>
-    <div class="tlist flat">${shownSteps().map((x) => {
-      const done = S.setup[x.id], locked = x.needs && !S.setup[x.needs];
-      return `<button class="srow sc-row ${done ? "done" : ""} ${locked ? "locked" : ""} ${x === nextUp ? "next" : ""}" data-act="setupStep" data-id="${x.id}">
-        <span class="sc-check">${done ? `<img src="${A("check.svg")}" alt="Done">` : ""}</span>
-        <span class="tl-txt"><span class="n">${x.t}</span><span class="m">${locked ? "Add tasks first" : done ? "Done · tap to change" : x.m}</span></span>${chev}</button>`;
-    }).join("")}</div>
-  </div>`, nextUp ? `<button class="card sc-peek" data-act="setupStep" data-id="${nextUp.id}"><span class="tl-txt"><span class="m">Next up</span><span class="n">${nextUp.t}</span></span>${chev}</button>` : "");
+  if (!nextUp) return "";
+  return `<section class="hsec start-here"><div class="hsec-head"><span class="hs-title">${n ? "Next up" : "Start here"}</span><span class="hs-count">${n} of ${total}</span></div>
+    <button class="card setup-card sc-one" data-act="setupStep" data-id="${nextUp.id}">
+      <span class="tl-txt"><span class="n">${nextUp.t}</span><span class="m">${nextUp.m}</span></span>${chev}</button></section>`;
 }
 
 // A titled Home section that folds closed. Closed, it can still show a one-line peek.
@@ -309,6 +305,107 @@ function setupDone(id) {
   const n = setupCount(), total = countedSteps().length;
   toast(n === total ? "All set up" : `${n} of ${total} done`);
 }
+
+// "Add what needs doing", as in the Swift app: one screen of starter tasks for the stage, all picked.
+// [name, size, skill]
+const STARTER_SIZED = {
+  start: [["Doctor appointments", 2, "drive"], ["Keep a list of meds and doses", 1, "paper"], ["Keep the care binder up to date", 1, "paper"], ["Insurance calls", 2, "phone"], ["Set up a meal train", 1, "phone"], ["Keep family updated", 1, "phone"], ["Safety check: rails, rugs, lights", 2, "there"]],
+  daily: [["Refill prescriptions", 1, "meds"], ["Weekly grocery run", 2, "drive"], ["Rides to appointments", 2, "drive"], ["Visit and keep them company", 2, "there"], ["Give the main caregiver a night off", 3, "there"], ["Keep family updated", 1, "phone"]],
+  final: [["Be there for hospice nurse visits", 2, "there"], ["Repositioning for comfort", 1, "there"], ["Record stories and memories", 2, "there"], ["Give the main caregiver a night off", 3, "there"], ["Overnight stays", 3, "there"], ["Keep family updated", 1, "phone"], ["Set up a meal train", 1, "phone"]],
+};
+const setupMade = () => (S.app.setupTasks ||= []).map((id) => S.tasks.find((t) => t.id === id)).filter(Boolean);
+function starterPick() {
+  if (!S.app.starterPick) {
+    const made = setupMade().map((t) => t.n);
+    S.app.starterPick = made.length ? made : (STARTER_SIZED[stageOf()] || []).map((x) => x[0]);
+  }
+  return S.app.starterPick;
+}
+const mkSetupTask = (n, w, k, date) => ({ id: `s${Date.now().toString(36)}${Math.floor(Math.random() * 999)}`, n, w, k, y: false, cat: "", on: true, pebble: false,
+  kind: "once", days: ["Sat"], date, time: "", who: null, done: false, steps: [], notes: "", remote: false });
+SCREENS.starterTasks = () => {
+  const list = STARTER_SIZED[stageOf()] || [];
+  const stage = STAGES.find((g) => g.id === stageOf());
+  const pick = starterPick();
+  const added = new Set(setupMade().map((t) => t.n));
+  const own = setupMade().filter((t) => !list.some((x) => x[0] === t.n));
+  const row = (n, w) => {
+    const on = pick.includes(n);
+    return `<button class="srow st-row" data-act="starterToggle" data-id="${esc(n)}" aria-pressed="${on}">${gem(on ? "open" : "done", { cls: `w${w}` })}
+      <span class="tl-txt"><span class="n">${esc(n)}</span><span class="m">${added.has(n) ? "In the shared jar" : WEIGHT_LABEL[w]}</span></span>${check(on)}</button>`;
+  };
+  const cta = pick.length ? `Add ${pick.length} task${pick.length === 1 ? "" : "s"}` : "Done";
+  return `${navtop("Home")}
+  <div class="content">
+    <p class="eyebrow">Add what needs doing</p>
+    <h1 class="title">Tasks families often need</h1>
+    <p class="sub">For ${stage.s}. Tap to leave any out. They start in the shared jar, and you choose who does what next.</p>
+    <div class="card tlist">
+      ${list.map(([n, w]) => row(n, w)).join("")}
+      ${own.map((t) => row(t.n, t.w)).join("")}
+      <div class="st-own"><input data-input="starterOwn" value="${esc(S.app.starterOwn || "")}" placeholder="Add your own" aria-label="Add your own task"><button class="linkish" data-act="starterAdd" ${(S.app.starterOwn || "").trim() ? "" : "disabled"}>Add</button></div>
+    </div>
+  </div>
+  ${solo(cta, "starterSave")}`;
+};
+APP_SCREENS.add("starterTasks");
+Object.assign(ACTIONS, {
+  starterToggle: (d) => {
+    const p = starterPick(), i = p.indexOf(d.id);
+    if (i >= 0) p.splice(i, 1); else p.push(d.id);
+    render();
+  },
+  starterAdd: () => {
+    const v = (S.app.starterOwn || "").trim();
+    if (!v) return;
+    const t = mkSetupTask(v, 2, "there", addDays(5));
+    S.tasks.push(t);
+    S.app.setupTasks.push(t.id);
+    starterPick().push(v);
+    S.app.starterOwn = "";
+    render();
+    toast(`Added “${v}”`);
+  },
+  starterSave: () => {
+    const list = STARTER_SIZED[stageOf()] || [];
+    const pick = starterPick();
+    // Drop the ones left out, add the new ones.
+    const drop = setupMade().filter((t) => !pick.includes(t.n)).map((t) => t.id);
+    S.tasks = S.tasks.filter((t) => !drop.includes(t.id));
+    S.app.setupTasks = S.app.setupTasks.filter((id) => !drop.includes(id) && S.tasks.some((t) => t.id === id));
+    const have = new Set(setupMade().map((t) => t.n));
+    list.forEach(([n, w, k], i) => {
+      if (!pick.includes(n) || have.has(n)) return;
+      const t = mkSetupTask(n, w, k, addDays(3 + (i % 5)));
+      S.tasks.push(t);
+      S.app.setupTasks.push(t.id);
+    });
+    if (!S.app.setupTasks.length) { toast("Pick at least one task"); return; }
+    S.app.starterPick = null;
+    setupDone("tasks");
+  },
+});
+
+// Settings › Prototype: switch between a new account and the full sample family without leaving the app.
+function useAccount(sample) {
+  if (!!S.app?.demo === sample) return;
+  const you = S.people.find((p) => p.id === "you");
+  S.people = [you];
+  S.tasks = [];
+  S.app = null;
+  if (sample) {
+    S.lovedOne = "Dad"; S.stage = "final"; S.setup = null;
+    S.kit ??= "yes";
+  } else {
+    S.setup = {};
+  }
+  ensureAppData();
+  S.screen = "settings";
+  S.history = [];
+  render();
+  toast(sample ? "Showing the full family" : "Showing a new account");
+}
+ACTIONS.useAccount = (d) => useAccount(d.id === "family");
 
 // The kit is an add-on. Everything works in the app; the kit puts the jars on a shelf at home.
 function kitSheet() {
@@ -569,7 +666,7 @@ SCREENS.myjar = () => {
     ${S.app.prefs.ring ? `<div class="card jar-hero"><div class="jh-ring" role="img" aria-label="${done.length} of ${all.length} done, ${urgent.length} urgent, ${today} for today">
         ${ring([{ v: done.length, color: "#418ef3" }, { v: urgent.length, color: urgentHex() }, { v: live.length - urgent.length, color: "transparent" }], { size: 150, stroke: 10 })}
         <div class="ring-mid"><b>${done.length}<small>/${all.length}</small></b><span>done</span></div>
-      </div></div>` : `<div class="card jar-check">${checkIn()}</div>`}
+      </div></div>` : ""}
     <div class="card jar-list">
       <div class="utabs" role="tablist">${[["all", "All"], ["once", "One-time"], ["repeat", "Ongoing"]].map(([id, l]) => `<button role="tab" class="${tab === id ? "on" : ""}" aria-selected="${tab === id}" data-act="jarTab" data-id="${id}">${l}<small>${count(id)}</small></button>`).join("")}</div>
       ${tab !== "repeat" && S.app.checkin === "break" && !S.app.heldOpen && S.app.requests.length ? `<button class="jl-req held" data-act="showHeld"><span class="tl-txt"><span class="eyebrow">On hold till Sunday</span><span class="n">${S.app.requests.length} ask${S.app.requests.length === 1 ? "" : "s"} waiting</span></span><span class="linkish">See</span></button>` : ""}
@@ -649,7 +746,7 @@ SCREENS.handoff = () => {
   const picked = Array.isArray(to) ? to : [];
   const all = able.length > 1 && able.every((p) => picked.includes(p.id));
   const target = picked.length === 1 ? person(picked[0]) : null;
-  const texts = picked.filter((id) => person(id)?.tier !== "main" || person(id)?.via === "text").length;
+  const texts = picked.filter((id) => person(id)?.tier !== "main" || person(id)?.remote).length;
   const label = to === undefined || (Array.isArray(to) && !picked.length) ? "Pick someone"
     : to === null ? "Leave it unassigned"
     : target ? `Send request to ${esc(target.name)}`
@@ -667,14 +764,15 @@ SCREENS.handoff = () => {
         const ok = canTake(p, t);
         const n = mine(p.id).filter((x) => !x.done).length;
         return `<button class="radio-row" data-act="handTo" data-id="${p.id}" ${ok ? "" : "disabled"}>${avatar(p, "s36")}
-          <span class="tl-txt"><span class="n">${esc(p.name)}</span><span class="m">${ok ? `${n} task${n === 1 ? "" : "s"}${p.remote ? " · remote" : ""}${p.tier === "trusted" ? " · gets a text" : ""}` : p.tier === "kid" ? "Kid tasks only" : "Light tasks only"}</span></span>
+          <span class="tl-txt"><span class="n">${esc(p.name)}</span><span class="m">${ok ? `${n} task${n === 1 ? "" : "s"}${p.remote ? " · remote" : ""}${p.tier === "trusted" ? " · gets a text" : ""}` : tierFits(p, t) ? "Needs someone close by" : p.tier === "kid" ? "Kid tasks only" : "Light tasks only"}</span></span>
           ${check(picked.includes(p.id), true)}</button>`;
       }).join("")}
       ${t.who && !step ? `<button class="radio-row" data-act="handTo" data-id="">${gem("open", { size: "s" })}<span class="tl-txt"><span class="n">Unassigned</span><span class="m">Glows white for whoever is free</span></span>${check(to === null)}</button>` : ""}
     </div>
     <p class="label hand-note">Note <span class="small">optional</span>${pebbleOn() && !S.app.notePebble ? `<button class="peb-chip sm" data-act="pebbleNote">Write it for me</button>` : ""}</p>
     <textarea class="note-input" data-input="handoffNote" placeholder="Anything they should know?">${esc(S.app.note)}</textarea>
-    ${target ? `<p class="small" style="text-align:center">We'll ${target.tier === "main" && target.via !== "text" ? "send it to the app" : "text"} ${esc(target.name)}.</p>`
+    ${S.app.notePebble ? `<p class="small peb-wrote">Pebble wrote this. It names the task and the date, never health details.</p>` : ""}
+    ${target ? `<p class="small" style="text-align:center">${target.tier === "main" && !target.remote ? `${esc(target.name)} gets it in the app.` : `We'll text ${esc(target.name)}.`}</p>`
       : picked.length > 1 ? `<p class="small" style="text-align:center">${esc(namesList(picked))} each get the request${texts ? ` (${texts === 1 ? "one gets a text" : `${texts} get a text`})` : ""}. Once someone says yes, the rest are told it's covered.</p>` : ""}
   </div>
   ${solo(label, "sendHandoff", null, label === "Pick someone" ? "disabled" : "")}`;
@@ -699,7 +797,7 @@ SCREENS.newTask = () => {
   <div class="content">
     <h1 class="title">New task</h1>
     <label class="nt-label" for="draftName">What needs doing?</label>
-    <input class="nt-input" id="draftName" data-input="draftName" value="${esc(t.n)}" placeholder="e.g. Pick up shower chair" ${t.n ? "" : "autofocus"}>
+    <input class="nt-input" id="draftName" data-input="draftName" value="${esc(t.n)}" placeholder="e.g. Pick up groceries" ${t.n ? "" : "autofocus"}>
     <div class="seg big">${[["once", "One-time"], ["repeat", "Ongoing"]].map(([k, l]) => `<button class="${t.kind === k ? "on" : ""}" aria-pressed="${t.kind === k}" data-act="draftKind" data-id="${k}">${l}</button>`).join("")}</div>
     <button class="card field-row" data-act="editDraftDate"><span>${t.kind === "once" ? "Due date" : "Repeats"} <em>Required</em></span><b>${t.kind === "once" ? fmtDate(t.date) : repeatLabel(t.days)}${t.time ? ` · ${fmtTime(t.time)}` : ""}</b>${chev}</button>
     <button class="card field-row" data-act="sizeSheet" data-id="${t.id}"><span class="fr-txt">Stone size <em>${t.sizeSet || !t.n.trim() || !pebbleOn() ? "" : "Pebble's guess"}</em><small>Bigger stone, bigger job</small></span>${gem("open", { size: "xs", cls: `w${t.w}` })}<b data-size-label>${WEIGHT_LABEL[t.w]}</b>${chev}</button>
@@ -767,10 +865,13 @@ SCREENS.peopleTab = () => {
         <span class="circle-ico">${icon("peopleTab")}</span>
         <span class="tl-txt"><span class="n">Trusted circle</span><span class="m"><span class="stack">${circle.slice(0, 4).map((p) => avatar(p, "s20")).join("")}</span>${circle.length ? `${esc(circle[0].name)}${circle.length > 1 ? ` + ${circle.length - 1} other${circle.length > 2 ? "s" : ""}` : ""} · ` : "No one yet · "}${((n) => `${n} task${n === 1 ? "" : "s"}`)(circle.reduce((n, p) => n + mine(p.id).length, 0))}</span></span>
         <span class="badge">On</span>${chev}</button>
-      ${stageOf() === "final" || S.app.demo ? `<button class="prow" data-act="roleGo" data-to="asNurse"><span class="avatar s36">A</span><span class="tl-txt"><span class="n">Hospice nurse</span><span class="m">Ana · see what she sees</span></span>${chev}</button>` : ""}
+      ${stageOf() === "final" || S.app.demo ? `<button class="prow" data-act="roleGo" data-to="asNurse"><span class="avatar s36">A</span><span class="tl-txt"><span class="n">Ana</span><span class="m">Hospice nurse · see what she sees</span></span>${chev}</button>` : ""}
+      <button class="prow" data-act="go" data-to="volunteerCode"><span class="circle-ico"><img src="${A("lock.svg")}" alt=""></span><span class="tl-txt"><span class="n">Volunteer code</span><span class="m">${S.app.prefs.publicCode ? `On · code ${PUBLIC_CODE}` : "Let neighbors and friends help from anywhere"}</span></span><span class="badge ${S.app.prefs.publicCode ? "" : "plain"}">${S.app.prefs.publicCode ? "On" : "Off"}</span>${chev}</button>
+    </div>
+    <p class="section-h">About ${esc(L())}</p>
+    <div class="card tlist">
       <button class="prow" data-act="go" data-to="care"><span class="circle-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${RES_ICON.heart}</svg></span><span class="tl-txt"><span class="n">${esc(possessive({ name: L() }))} care</span><span class="m">Meds, allergies, needs and preferences</span></span>${chev}</button>
       <button class="prow" data-act="go" data-to="resources"><span class="circle-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${RES_ICON.phone}</svg></span><span class="tl-txt"><span class="n">Help and resources</span><span class="m">Hospice line, social worker, grief support</span></span>${chev}</button>
-      <button class="prow" data-act="go" data-to="volunteerCode"><span class="circle-ico"><img src="${A("lock.svg")}" alt=""></span><span class="tl-txt"><span class="n">Volunteer code</span><span class="m">${S.app.prefs.publicCode ? `On · code ${PUBLIC_CODE}` : "Let neighbors and friends help from anywhere"}</span></span><span class="badge ${S.app.prefs.publicCode ? "" : "plain"}">${S.app.prefs.publicCode ? "On" : "Off"}</span>${chev}</button>
     </div>
   </div>
   ${tabbar()}`;
@@ -830,6 +931,11 @@ SCREENS.settings = () => {
       ${pebbleOn() ? row("What Pebble did", PB().log.length ? `${PB().log.length} change${PB().log.length === 1 ? "" : "s"} · undo anything` : "Nothing yet · every change shows here", "pebbleLogOpen") : ""}</div>
     <p class="section-h">Account</p>
     <div class="card tlist">${row("Sign out", "Back to the sign-in screen", "signOutSheet")}</div>
+    <p class="section-h">Prototype</p>
+    <div class="card proto-acct">
+      <div class="seg wide">${[["new", "New account", !S.app.demo], ["family", "Full family", S.app.demo]].map(([k, l, on]) => `<button class="${on ? "on" : ""}" aria-pressed="${on}" data-act="useAccount" data-id="${k}">${l}</button>`).join("")}</div>
+      <p class="small">${S.app.demo ? "Months of tasks, five people and paired stones" : "Just finished onboarding, nothing added yet"}</p>
+    </div>
     <button class="btn-text center" data-act="restart">Restart prototype</button>
   </div>
   ${tabbar()}`;
@@ -1194,7 +1300,7 @@ Object.assign(NOTES, {
   charge: ["Charging", ["The base powers the jars, so stones charge in a jar or on the base. No moving stones around to charge.", "Only a stone left out (on a table, in a bag) runs down, and the app warns you."]],
   pairRest: ["Pair the rest", ["Optional. Anyone can pair their own stones later."]],
   home: ["Home", ["Urgent first, then the family jars and this week. No section labels, so it reads at a glance.", "The week is a bar chart of how much the family has each day. Tap a bar to see that day's tasks.", "Top right: the jar icon opens the home kit (only if the family has one), the bell opens notifications.", "Only urgent stones carry a mark: a ! in the urgent color, so it never looks like a notification on anything else. Done stones go grey. Each jar says how many are left."]],
-  myjar: ["My jar", ["A weekly check-in: how's your load feeling? Private, and each answer does something. \"Stretched thin\" finds someone with room. \"I need a break\" holds new asks until Sunday.", "The old progress ring is optional now, under Settings › My jar.", "One list with All, One-time and Ongoing tabs. Urgent tasks sit on top. Tick to mark done."]],
+  myjar: ["My jar", ["The progress ring is optional now, under Settings › My jar.", "One list with All, One-time and Ongoing tabs. Urgent tasks sit on top. Tick to mark done."]],
   task: ["A task", ["Med tasks show their meds from the care page: the dose big and bold, who gave the last one, and when the next is okay.", "Shows who has it, its size, steps, and notes. Hand off or mark done from here. Pebble sits under the notes with one thing it can do, like writing the ask for you.", "Hand-offs are asks, not orders: the other person says yes or no, and everyone sees the answer.", "Every task has a stone. Linking a real stone at home is optional."]],
   handoff: ["Hand off", ["Ask one person, a few, or everyone at once. The first to say yes takes it, and the rest are told it's covered.", "Families asked for this: \"anyone free Thursday?\" shouldn't mean asking one by one.", "Trusted circle and kids are limited to the tasks they can take."]],
   newTask: ["Add a task", ["Name, one-time or ongoing, due date, and stone size (bigger stone, bigger job).", "Who can help: main caregivers, trusted circle, kids. Can be done from anywhere lets remote family take it.", "Saving adds its stone to that person's jar."]],
@@ -1289,11 +1395,8 @@ Object.assign(ACTIONS, {
   skipToApp: () => { ensureAppData(); tabTo("home"); },
   setupStep: (d) => {
     const x = SETUP_STEPS.find((y) => y.id === d.id);
-    if (x.needs && !S.setup[x.needs]) { toast("Add tasks first"); return; }
-    if (d.id === "tasks") {
-      if (S.setup.tasks) { S.flowKey = S.path; go("tasks"); } else go("taskStart");
-      return;
-    }
+    if (x.needs && !S.setup[x.needs]) { toast("Add what needs doing first"); return; }
+    if (d.id === "tasks") { S.app.starterPick = null; go("starterTasks"); return; }
     if (d.id === "stones") { hasKit() ? go("ready") : kitSheet(); return; }
     S.flowKey = d.id;
     if (d.id === "split") S.sent = false;
@@ -1302,7 +1405,7 @@ Object.assign(ACTIONS, {
   finishStones: () => setupDone("stones"),
   kitSheet,
   kitYes: () => { S.kit = "yes"; closeSheet(); go("ready"); },
-  kitNo: () => { S.kit = "no"; closeSheet(); render(); toast("Stones stay in the app. Add a kit anytime in Settings."); },
+  kitNo: () => { S.kit = "no"; closeSheet(); render(); toast("Just the app. You can add a kit from Settings."); },
   kitOff: () => { S.kit = "no"; S.app.blink = null; tabTo("settings"); toast("Kit off. Your stones and jars stay in the app."); },
   hideSetup: () => { S.setup.hidden = true; render(); },
   homeFold: (d) => { S.app.shut ||= {}; S.app.shut[d.id] = !S.app.shut[d.id]; render(); },
@@ -1341,8 +1444,8 @@ Object.assign(ACTIONS, {
     S.app.req = r.id;
     openSheet(`<p class="eyebrow">Request from ${esc(nameOf(r.from))}</p><h3>${esc(r.n)}</h3>
       <p class="small">“${esc(r.note)}”</p>
-      <div class="actions"><button class="btn-soft" data-act="answerReq" data-id="0">Not this time</button><button class="btn-soft" data-act="answerReq" data-id="1">I'll take it</button></div>
-      <button class="btn-primary" data-act="closeSheet">Decide later</button>`);
+      <div class="actions"><button class="btn-ghost" data-act="answerReq" data-id="0">Not this time</button><button class="btn-primary" data-act="answerReq" data-id="1">I'll take it</button></div>
+      <button class="btn-text center" data-act="closeSheet">Decide later</button>`);
   },
   answerReq: (d) => {
     const r = S.app.requests.find((x) => x.id === S.app.req);
@@ -1350,7 +1453,7 @@ Object.assign(ACTIONS, {
     if (d.id === "1") S.tasks.push({ id: `r${Date.now()}`, n: r.n, w: 1, k: "phone", y: false, cat: "", on: true, kind: "once", days: ["Sat"], date: addDays(1), time: "", who: "you", done: false, steps: [], notes: r.note, remote: true });
     closeSheet();
     render();
-    toast(d.id === "1" ? "Added to your jar" : `${nameOf(r.from)} will see it's back with them`);
+    toast(d.id === "1" ? `It's in your jar. ${nameOf(r.from)} will see you took it.` : `${nameOf(r.from)} will find someone else.`);
   },
   taskMenu: () => {
     const t = curTask();
@@ -1562,7 +1665,12 @@ const APP_INPUT = {
     if (!t.sizeSet && pebbleOn()) {
       t.w = t.pw = v.trim() ? guessSize(v) : 2;
       const lab = document.querySelector("[data-size-label]");
-      if (lab) { lab.textContent = WEIGHT_LABEL[t.w]; lab.previousElementSibling.querySelector("em").textContent = v.trim() ? "Pebble's guess" : ""; }
+      if (lab) {
+        lab.textContent = WEIGHT_LABEL[t.w];
+        const row = lab.closest(".field-row"), em = row?.querySelector(".fr-txt em"), g = row?.querySelector(".gem");
+        if (em) em.textContent = v.trim() ? "Pebble's guess" : "";
+        if (g) g.className = g.className.replace(/\bw[123]\b/, `w${t.w}`);
+      }
     }
     const btn = document.querySelector(".footer .btn-primary");
     if (btn) btn.disabled = !v.trim();
@@ -1572,3 +1680,8 @@ const APP_INPUT = {
   thanksNote: (v) => { S.app.thanksNote = v; },
 };
 
+APP_INPUT.starterOwn = (v) => {
+  S.app.starterOwn = v;
+  const b = document.querySelector('[data-act="starterAdd"]');
+  if (b) b.disabled = !v.trim();
+};

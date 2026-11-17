@@ -71,10 +71,12 @@ Object.assign(ACTIONS, {
   tourStart: () => startTour(),
 });
 
-// First time on Home after onboarding, the tour starts on its own.
+// First time on Home after onboarding, the tour starts on its own. Not in test links (the Swift app has no tour);
+// it's still in Settings.
 const finishOnboardingBase = finishOnboarding;
 finishOnboarding = function () {
   finishOnboardingBase();
+  if (document.body.classList.contains("test")) return;
   setTimeout(() => { if (S.screen === "home" && !S.app.toured) startTour(); }, 450);
 };
 

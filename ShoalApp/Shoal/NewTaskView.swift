@@ -32,7 +32,7 @@ struct NewTaskView: View {
             Text("New task").font(.title()).foregroundStyle(Color.navy)
 
             label("What needs doing?")
-            TextField("e.g. Pick up shower chair", text: $name)
+            TextField("e.g. Pick up groceries", text: $name)
                 .font(.app(17)).focused($nameFocus).submitLabel(.done)
                 .padding(.horizontal, 16).frame(height: 56)
                 .background(.white, in: .rect(cornerRadius: 16))

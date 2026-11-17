@@ -45,8 +45,6 @@ struct MyJarView: View {
             if store.ringOn {
                 HStack { Spacer(); Ring(done: done.count, urgent: urgent.count, total: all.count); Spacer() }
                     .glassCard()
-            } else {
-                CheckInCard()
             }
 
             VStack(alignment: .leading, spacing: 0) {

@@ -34,6 +34,8 @@ struct HomeView: View {
 
             SetupCard()
 
+            // A new account sees just the next step; the jars and widgets come in once there are tasks.
+            if !store.tasks.isEmpty {
             let jarW: CGFloat = store.mainPeople.count > 4 ? 330 / CGFloat(store.mainPeople.count) : 76
             HStack(alignment: .top, spacing: 0) {
                 ForEach(store.mainPeople) { p in
@@ -59,6 +61,7 @@ struct HomeView: View {
             CareHomeCard()
 
             WeekCard()
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $notesOpen) { NotesSheet(urgent: urgent, finished: finished) }

@@ -35,8 +35,7 @@ function homeNew() {
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
     <h1 class="title">Good morning</h1>
     ${setupCard()}
-
-    <section class="h-jars" aria-label="Family jars">${familyJars()}</section>
+    ${S.tasks.length ? `<section class="h-jars" aria-label="Family jars">${familyJars()}</section>
 
     <div class="k-grid">${jarW}${kitW}</div>
 
@@ -46,7 +45,7 @@ function homeNew() {
         <div class="tlist flat">${today.length ? today.slice(0, S.app.weekAll ? 99 : 3).map((t) => taskLine(t)).join("") : `<p class="small empty">Nothing on ${DAY_FULL[dayKey(day)]}.</p>`}</div>
         ${today.length > 3 ? `<button class="k-link" data-act="weekAll">${S.app.weekAll ? "Show less" : `${today.length - 3} more`}</button>` : ""}`
         : `<p class="small empty">No tasks yet. Once you add some, your family's week shows here.</p>`}
-    </section>
+    </section>` : ""}
   </div>
   ${tabbar()}</div>`;
 }
