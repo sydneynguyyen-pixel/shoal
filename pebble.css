@@ -163,3 +163,35 @@
 .pc-send { background: var(--navy); }
 .peb-chat:not(.blank):not(.live) .pc-mic, .peb-chat.blank .pc-send { display: none; }
 .pc-menu { margin: 0; }
+/* Pebble's drafts look like the tasks they'll become. */
+.pc-props { padding-top: 2px; padding-bottom: 2px; }
+.pc-row { width: 100%; text-align: left; gap: 12px; padding: 10px 0; }
+.pc-row.off .tl-txt, .pc-row.off .gem { opacity: 0.45; }
+.pc-row:disabled { cursor: default; }
+
+/* Chat: your message slides in, Pebble thinks in a bubble, types its answer, then the rest fades in. */
+.pc-said { animation: pcSlide 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.pc-bubrow { display: flex; align-items: flex-end; gap: 8px; padding-right: 24px; transform-origin: bottom left; animation: pcPop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.pc-bubrow .pc-fig { flex: none; width: 32px !important; }
+.pc-bubble { min-width: 0; padding: 10px 14px; border-radius: 20px; background: rgba(255, 255, 255, 0.92); border: 1px solid #fff; box-shadow: 0 4px 8px rgba(33, 38, 46, 0.05); }
+.pc-bubble .pc-reply { min-height: 22px; }
+.pc-dots { display: flex; gap: 5px; height: 20px; align-items: center; }
+.pc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: pcDot 1s ease-in-out infinite; }
+.pc-dots i:nth-child(2) { animation-delay: 0.13s; }
+.pc-dots i:nth-child(3) { animation-delay: 0.26s; }
+.pc-peb { animation: pcSlide 0.35s ease-out both; }
+.pc-acts { display: flex; gap: 10px; padding-top: 2px; }
+.pc-pill { height: 40px; padding: 0 18px; border-radius: 20px; background: var(--blue); color: #fff; font-size: 15px; font-weight: 600; border: 1px solid transparent; transition: transform 0.15s; }
+.pc-pill:active { transform: scale(0.97); }
+.pc-pill.ghost { background: rgba(255, 255, 255, 0.85); color: var(--ink); border-color: #e3e1dc; }
+.pc-change { margin: 0; }
+.pc-next { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 12px; padding: 0 16px; animation: fadeIn 0.3s both; }
+.pc-next::-webkit-scrollbar { display: none; }
+.pc-next .chip { flex: none; white-space: nowrap; height: 36px; }
+.peb-chat:not(.blank) .pc-next, .peb-chat.live .pc-next { display: none; }
+/* A soft fade behind the chips and text box so the chat doesn't show through. */
+.peb-chat:not(.empty) .pc-compose { margin-top: -28px; padding-top: 28px; background: linear-gradient(rgba(245, 247, 251, 0), rgba(245, 247, 251, 0.96) 30%); }
+.peb-chat:not(.empty) .pc-body { padding-bottom: 32px; }
+@keyframes pcSlide { from { opacity: 0; transform: translateY(14px); } }
+@keyframes pcPop { from { opacity: 0; transform: scale(0.9); } }
+@keyframes pcDot { 0%, 100% { opacity: 0.35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }

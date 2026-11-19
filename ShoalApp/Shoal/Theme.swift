@@ -6,7 +6,7 @@ extension Color {
     }
     static let navy = Color(hex: 0x13315d)
     static let ink = Color(hex: 0x22262e)
-    static let muted = Color(hex: 0x6e737c)
+    static let muted = Color(hex: 0x5b6069)   // darker for contrast on the light background
     static let sectionInk = Color(hex: 0x4f5560)
     static let shoalBlue = Color(hex: 0x2070d9)
     static let blueTint = Color(hex: 0x2070d9, 0.1)
@@ -32,7 +32,7 @@ extension Font {
     }
     static func title(_ size: CGFloat = 32, weight: CGFloat = 400) -> Font { Font(UIFont.fraunces(size, weight: weight) as CTFont) }
     static let body15 = Font.app(15)
-    static let meta = Font.app(13)
+    static let meta = Font.app(15)
 }
 
 extension UIFont {

@@ -684,7 +684,6 @@ struct StoneDetailView: View {
                     .font(.app(15, .semibold)).frame(maxWidth: .infinity).padding(.top, 6)
                 }
             }
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Rename") { store.say("Renaming is coming soon") } } }
             .sheet(isPresented: $pairing) { PairSheet(only: id).presentationDetents([.medium, .large]) }
         }
     }

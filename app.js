@@ -842,7 +842,7 @@ SCREENS.split = () => {
     ${unassigned.length ? `<div class="card helpcard">
         <b style="font-size:15px">${unassigned.length} stone${unassigned.length > 1 ? "s" : ""} still glow white</b>
         <p class="small" style="margin:4px 0 0">No one has room for ${unassigned.length > 1 ? "these" : "this"} yet. You can still share ${unassigned.length > 1 ? "them" : "it"}:</p>
-        <div class="chips"><button class="chip" data-act="toast" data-msg="Shared with the trusted circle">Ask trusted circle</button><button class="chip" data-act="toast" data-msg="Pebble will suggest local paid help">Find paid help</button></div>
+        <div class="chips"><button class="chip" data-act="toast" data-msg="Shared with the trusted circle">Ask trusted circle</button></div>
       </div>` : ""}
     ${picked().map((t) => `<div class="card task-card">
       <div class="head">${stone(!!t.who)}<span class="n">${esc(t.n)}</span>${weightPill(t.w)}</div>

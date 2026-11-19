@@ -9,6 +9,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ app: UIApplication, didFinishLaunchingWithOptions opts: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let c = UNUserNotificationCenter.current()
         c.delegate = self
+        // Large titles in Fraunces, like the web's headings; they collapse on scroll.
+        let nav = UINavigationBarAppearance()
+        nav.configureWithTransparentBackground()
+        nav.largeTitleTextAttributes = [.font: UIFont.fraunces(34), .foregroundColor: UIColor(Color.navy)]
+        nav.titleTextAttributes = [.font: UIFont.fraunces(18), .foregroundColor: UIColor(Color.navy)]
+        let bar = UINavigationBarAppearance(); bar.configureWithDefaultBackground()
+        bar.titleTextAttributes = nav.titleTextAttributes
+        UINavigationBar.appearance().scrollEdgeAppearance = nav
+        UINavigationBar.appearance().standardAppearance = bar
         let take = UNNotificationAction(identifier: "TAKE", title: "I'll take it", options: [])
         let pass = UNNotificationAction(identifier: "PASS", title: "Not this time", options: [])
         let open = UNNotificationAction(identifier: "OPEN", title: "Open in Shoal", options: [.foreground])

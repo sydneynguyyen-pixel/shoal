@@ -7,7 +7,7 @@ struct ShoalApp: App {
     var body: some Scene {
         WindowGroup {
             RootView().environment(delegate.store).tint(.shoalBlue)
-                .preferredColorScheme(.light)   // the web has no dark mode
+                .preferredColorScheme(delegate.store.onDarkPage ? .dark : .light)   // light everywhere, except the dark Home kit page
                 .onOpenURL { open($0) }
                 .task { delegate.store.syncWidgets(); delegate.store.startSeededActivity() }
                 .onChange(of: phase) { if phase == .background { delegate.store.syncWidgets() } }
@@ -71,6 +71,7 @@ struct RootView: View {
                 case .person(let id): PersonView(id: id)
                 case .newTask: NewTaskView()
                 case .care(let nurse): CareView(nurse: nurse)
+                case .loved: LovedView()
                 case .kit: KitView()
                 case .stones: StonesView()
                 case .stone(let id): StoneDetailView(id: id)
@@ -121,7 +122,10 @@ struct TaskLine: View {
                     }
                 }
                 Spacer(minLength: 4)
-                if t.handoff?.pending == true {
+                if t.done {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundStyle(Color.shoalBlue)
+                        .accessibilityLabel("Done")
+                } else if t.handoff?.pending == true {
                     Text("Asked").font(.app(12, .semibold)).foregroundStyle(Color.shoalBlue)
                         .padding(.horizontal, 8).padding(.vertical, 3).background(Color.blueTint, in: .capsule)
                 }

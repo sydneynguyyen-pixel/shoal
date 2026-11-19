@@ -12,81 +12,59 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var store = store
-        Page {
-            Text("Settings").font(.title()).foregroundStyle(Color.navy)
-            HStack(spacing: 12) {
-                Avatar(p: store.person("you"), size: 36)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(store.person("you")?.name ?? "You").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                    Text(store.phone.isEmpty ? "Signed in with your phone" : "Signed in as +1 \(fmtPhone(store.phone))").font(.meta).foregroundStyle(Color.muted)
+        List {
+            Section {
+                HStack(spacing: 12) {
+                    Avatar(p: store.person("you"), size: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.person("you")?.name ?? "You").font(.app(16, .semibold)).foregroundStyle(Color.ink)
+                        Text(store.phone.isEmpty ? "Signed in with your phone" : "+1 \(fmtPhone(store.phone))").font(.meta).foregroundStyle(Color.muted)
+                    }
                 }
-                Spacer()
             }
-            .glassCard(padding: 14)
-
-            SectionH(text: "Family")
-            VStack(spacing: 0) {
-                row("Care page lock", "PIN or Face ID · primary caregivers only") { careLock = true }
-                RowSep()
+            Section("Family") {
+                row("Care page lock", "PIN or Face ID") { careLock = true }
                 row("Family setup", "Redo with Pebble or by hand") { redo = true }
             }
-            .glassCard(padding: 14)
-
-            SectionH(text: "Notifications")
-            VStack(spacing: 0) {
-                row("Someone needs help", "A sample in 5 seconds. Lock the phone to see it.") { sample("ask") }
-                RowSep()
-                row("A task got done", "A sample in 5 seconds, with Say thanks") { sample("done") }
+            Section("Notifications") {
+                row("Someone needs help", "Sample in 5 seconds") { sample("ask") }
+                row("A task got done", "Sample in 5 seconds") { sample("done") }
             }
-            .glassCard(padding: 14)
-
-            SectionH(text: "My jar")
-            toggleRow("Progress ring", store.ringOn ? "Shows how many of your tasks are done" : "Off · My jar asks how your week feels instead", $store.ringOn)
-                .glassCard(padding: 14)
-
-            SectionH(text: "Stones")
-            VStack(spacing: 0) {
+            Section("My jar") {
+                toggleRow("Progress ring", store.ringOn ? "Shows how many tasks are done" : "Asks how your week feels instead", $store.ringOn)
+            }
+            Section("Stones") {
                 row("Stone colors", store.colors.summary) { colors = true }
-                RowSep()
-                row("Home kit", store.kit == true ? "Jars, stones, glow and battery" : "Not using one · add real jars and glowing stones") {
+                row("Home kit", store.kit == true ? "Jars, stones, glow and battery" : "Not set up") {
                     if store.kit == true { store.go(.kit) } else { store.kit = true; store.kitSetup = true }
                 }
             }
-            .glassCard(padding: 14)
-
-            SectionH(text: "Pebble")
-            VStack(spacing: 0) {
-                toggleRow("Pebble suggestions", store.pebbleOn ? "Suggests tasks and a fair split, notices what's slipping, drafts asks" : "Off · you set things up by hand", $store.pebbleOn)
-                    .padding(.bottom, 10)
-                RowSep()
-                row("What Pebble can see", "Answers, goals and what you tell it. No medical advice.") { sees = true }
+            Section("Pebble") {
+                toggleRow("Pebble suggestions", store.pebbleOn ? "On" : "Off · you set things up by hand", $store.pebbleOn)
+                row("What Pebble can see", "No medical advice") { sees = true }
                 if store.pebbleOn {
-                    RowSep()
-                    row("What Pebble did", store.pebbleLog.isEmpty ? "Nothing yet · every change shows here" : "\(plural(store.pebbleLog.count, "change")) · undo anything") { log = true }
+                    row("What Pebble did", store.pebbleLog.isEmpty ? "Nothing yet" : plural(store.pebbleLog.count, "change")) { log = true }
                 }
             }
-            .glassCard(padding: 14)
-
-            SectionH(text: "Account")
-            row("Sign out", "Back to the sign-in screen") { signOut = true }
-                .glassCard(padding: 14)
-
-            SectionH(text: "Prototype")
-            VStack(alignment: .leading, spacing: 8) {
+            Section("Account") {
+                Button("Sign out", role: .destructive) { signOut = true }.font(.app(16))
+            }
+            Section {
                 Picker("Account", selection: Binding(get: { store.sample }, set: { store.useAccount(sample: $0) })) {
                     Text("New account").tag(false)
                     Text("Full family").tag(true)
                 }
                 .pickerStyle(.segmented)
+                .listRowBackground(Color.clear).listRowInsets(.init())
+                Button("Restart prototype") { restart = true }.font(.app(16))
+            } header: { Text("Testing") } footer: {
                 Text(store.sample ? "Months of tasks, five people and paired stones" : "Just finished onboarding, nothing added yet")
-                    .font(.meta).foregroundStyle(Color.muted)
             }
-            .glassCard(padding: 14)
-
-            Button("Restart prototype") { restart = true }
-                .font(.app(15, .semibold)).frame(maxWidth: .infinity).padding(.top, 18)
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppBackground())
+        .navigationTitle("Settings")
         .onChange(of: store.pebbleOn) { if !store.pebbleOn && store.tab == 3 { store.tab = 4 } }
         .sheet(isPresented: $sees) { SeesView().presentationDetents([.medium]) }
         .sheet(isPresented: $careLock) { CareLockSheet() }
@@ -116,7 +94,7 @@ struct SettingsView: View {
     private func toggleRow(_ t: String, _ d: String, _ b: Binding<Bool>) -> some View {
         Toggle(isOn: b.animation(.snappy)) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(t).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                Text(t).font(.app(16)).foregroundStyle(Color.ink)
                 Text(d).font(.meta).foregroundStyle(Color.muted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -129,14 +107,14 @@ struct SettingsView: View {
         Button(action: a) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(t).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
+                    Text(t).font(.app(16)).foregroundStyle(Color.ink)
                     Text(d).font(.meta).foregroundStyle(Color.muted).multilineTextAlignment(.leading)
                 }
                 Spacer()
                 Chevron()
             }
-            .padding(.vertical, 10)
+            .contentShape(.rect)
         }
-        .buttonStyle(Pressable())
+        .buttonStyle(.plain)
     }
 }

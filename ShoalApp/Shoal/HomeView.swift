@@ -26,11 +26,12 @@ struct HomeView: View {
             }
             .padding(.bottom, 2)
 
-            NoteStack(urgent: urgent, finished: finished, open: $stackOpen)
-
             Text(TODAY.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased())
                 .font(.app(11, .semibold)).tracking(0.88).foregroundStyle(Color.muted)
-            Text("Good morning").font(.title()).foregroundStyle(Color.navy).padding(.bottom, 4)
+            Text("Good morning").font(.title(28)).foregroundStyle(Color.navy).padding(.bottom, 6)
+
+            // The urgent task leads the page. Finished tasks wait in the bell.
+            NoteStack(urgent: urgent, finished: nil, open: $stackOpen)
 
             SetupCard()
 
@@ -58,7 +59,6 @@ struct HomeView: View {
                 if store.kit == true { KitTile() } else { PeopleTile() }
             }
 
-            CareHomeCard()
 
             WeekCard()
             }
@@ -240,16 +240,16 @@ struct NoteStack: View {
             thumb.frame(width: 40, height: 40)
                 .background((tint?.opacity(0.22) ?? .white.opacity(0.55)), in: .circle)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.app(14.5, .semibold)).foregroundStyle(Color.ink).lineLimit(1)
-                Text(body).font(.app(12.5)).foregroundStyle(tint == nil ? Color(hex: 0x22262e, 0.6) : Color(hex: 0x8a5a07)).lineLimit(1)
+                Text(title).font(.app(16, .semibold)).foregroundStyle(Color.ink).lineLimit(2)
+                Text(body).font(.app(14)).foregroundStyle(tint == nil ? Color(hex: 0x22262e, 0.6) : Color(hex: 0x8a5a07)).lineLimit(2)
             }
             Spacer(minLength: 4)
             Button(cta, action: action)
-                .font(.app(12.5, .semibold)).foregroundStyle(Color.navy)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.white.opacity(0.75), in: .rect(cornerRadius: 14))
+                .font(.app(14, .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Color.shoalBlue, in: .capsule)
         }
-        .padding(10)
+        .padding(14)
         .background(RoundedRectangle(cornerRadius: 22).fill(tint.map { $0.opacity(0.16) } ?? .white.opacity(0.5)).background(.ultraThinMaterial, in: .rect(cornerRadius: 22)))
         .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.85)))
         .shadow(color: Color(hex: 0x13315d, 0.12), radius: 12, y: 8)
@@ -283,6 +283,7 @@ struct NotesSheet: View {
                             }
                         }
                     }
+                    .listRowBackground(Color.white.opacity(0.92))
                 }
                 if let f = finished, let p = store.person(f.who) {
                     Section("Finished") {
@@ -294,6 +295,7 @@ struct NotesSheet: View {
                                 .font(.app(14, .semibold)).foregroundStyle(Color.thanks).buttonStyle(.borderless)
                         }
                     }
+                    .listRowBackground(Color.white.opacity(0.92))
                 }
                 if !asks.isEmpty {
                     Section("Waiting on an answer") {
@@ -303,14 +305,17 @@ struct NotesSheet: View {
                             }
                         }
                     }
+                    .listRowBackground(Color.white.opacity(0.92))
                 }
                 if urgent.isEmpty && finished == nil && asks.isEmpty {
                     Text("You're all caught up.").font(.body15).foregroundStyle(Color.muted)
                 }
             }
+            .scrollContentBackground(.hidden)   // white frost instead of the grey sheet glass
             .navigationTitle("Notifications").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+        .presentationBackground { Rectangle().fill(.white.opacity(0.72)).background(.ultraThinMaterial) }
         .presentationDetents([.medium, .large])
     }
 }
@@ -359,6 +364,8 @@ struct WeekCard: View {
             .padding(.top, 6)
             Text(heavyN > 0 ? "\(DAY_FULL[dayKey(heavy)]!) is the heavy day · \(plural(heavyN, "task"))" : store.tasks.isEmpty ? "Nothing planned yet" : "A light week")
                 .font(.app(13.5)).foregroundStyle(Color.muted).padding(.horizontal, 4).padding(.top, 6).padding(.bottom, 8)
+            Text("\(Calendar.current.isDate(store.day, inSameDayAs: TODAY) ? "Today" : DAY_FULL[dayKey(store.day)]!), \(store.day.formatted(.dateTime.month(.abbreviated).day()))".uppercased())
+                .font(.app(13, .semibold)).tracking(0.78).foregroundStyle(Color.muted).padding(.horizontal, 4).padding(.top, 6)
             if today.isEmpty {
                 Text("Nothing on \(DAY_FULL[dayKey(store.day)]!).").font(.meta).foregroundStyle(Color.muted).padding(.vertical, 12)
             } else {

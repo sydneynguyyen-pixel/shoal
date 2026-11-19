@@ -23,40 +23,44 @@ struct TaskView: View {
     @State private var term: String?
     @State private var dateSheet = false
 
+    @State var blink = false
+    @State private var adding = false
+    @State private var newStep = ""
+    @State private var editingNote = false
+    @State private var noteDraft = ""
+
     var body: some View {
         if let t = store.task(id) {
             let p = store.person(t.who)
             let stepsDone = t.steps.filter(\.done).count
             Page {
+                // Title first, then one line: who, when, and whether it's urgent.
+                HStack(alignment: .top, spacing: 12) {
+                    Text(t.n).font(.title()).foregroundStyle(Color.navy)
+                    Spacer(minLength: 8)
+                    t.stone(base: 30).padding(.top, 6)
+                        .opacity(blink ? 0.25 : 1).scaleEffect(blink ? 1.15 : 1)
+                }
                 HStack(spacing: 6) {
-                    Badge(text: t.kind == .once ? "One-time" : "Ongoing")
-                    Button { sizeSheet = true } label: { Badge(text: t.w.label) }.accessibilityLabel("Size: \(t.w.label). Change size")
-                    Badge(text: (t.kind == .once ? "Due \(fmtDate(t.date))" : repeatLabel(t.days)) + (t.time.isEmpty ? "" : " · \(fmtTime(t.time))"), amber: t.urgent)
-                    if t.remote { Badge(text: "Remote OK") }
+                    if let p { Avatar(p: p, size: 22) }
+                    (Text("\(p?.name ?? "Unassigned") · \(t.done ? "Done" : t.kind == .once ? "Due \(fmtDate(t.date))" : repeatLabel(t.days))\(t.time.isEmpty ? "" : " · \(fmtTime(t.time))")")
+                        .foregroundStyle(Color.muted)
+                     + (t.urgent && !t.done ? Text(" · Urgent").foregroundStyle(Color.amber) : Text("")))
+                        .font(.app(15))
                 }
-                Text(t.n).font(.title()).foregroundStyle(Color.navy).padding(.bottom, 2)
-
-                HStack(spacing: 12) {
-                    if let p { Avatar(p: p, size: 40) } else {
-                        Circle().strokeBorder(Color(hex: 0xb7bcc4), style: .init(lineWidth: 1.4, dash: [4, 3])).frame(width: 40, height: 40)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(p?.name ?? "Unassigned").font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                        Text(t.done ? "Done · stone resting" : stoneLine(t)).font(.meta).foregroundStyle(Color.muted)
-                    }
-                    Spacer()
-                    t.stone(base: 30)
-                }
-                .glassCard()
+                .padding(.bottom, 8)
 
                 if let h = t.handoff { handoffCard(t, h) }
 
-                if !t.steps.isEmpty {
+                // Every task shows Steps and Notes, even when they're empty.
+                Group {
                     VStack(alignment: .leading, spacing: 0) {
-                        HStack { Text("Steps").font(.app(15, .semibold)).foregroundStyle(Color.ink); Spacer(); Text("\(stepsDone) of \(t.steps.count)").font(.app(13)).foregroundStyle(Color.muted) }
-                        Capsule().fill(Color(hex: 0x418ef3, 0.16)).frame(height: 6)
-                            .overlay(alignment: .leading) { GeometryReader { g in Capsule().fill(Color.shoalBlue).frame(width: g.size.width * CGFloat(stepsDone) / CGFloat(t.steps.count)) } }
-                            .padding(.top, 10).padding(.bottom, 4)
+                        HStack { Text("Steps").font(.app(17, .semibold)).foregroundStyle(Color.ink); Spacer(); if !t.steps.isEmpty { Text("\(stepsDone) of \(t.steps.count) done").font(.app(15)).foregroundStyle(Color.muted) } }
+                        if !t.steps.isEmpty {
+                            Capsule().fill(Color(hex: 0x418ef3, 0.16)).frame(height: 6)
+                                .overlay(alignment: .leading) { GeometryReader { g in Capsule().fill(Color.shoalBlue).frame(width: g.size.width * CGFloat(stepsDone) / CGFloat(t.steps.count)) } }
+                                .padding(.top, 10).padding(.bottom, 4)
+                        }
                         ForEach(Array(t.steps.enumerated()), id: \.element.id) { i, x in
                             if i > 0 { RowSep() }
                             HStack(spacing: 12) {
@@ -65,10 +69,11 @@ struct TaskView: View {
                                     .accessibilityLabel(x.done ? "Mark \(x.n) not done" : "Mark \(x.n) done")
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(x.n).font(.app(15.5, .semibold)).foregroundStyle(Color.ink)
-                                    Text(stepLine(x)).font(.app(13)).foregroundStyle(Color.muted)
+                                    let line = stepLine(x, owner: t.who)
+                                    if !line.isEmpty { Text(line).font(.app(15)).foregroundStyle(Color.muted) }
                                 }
                                 Spacer()
-                                if let w = x.who, w != "you" { Avatar(p: store.person(w), size: 22) }
+                                if let w = x.who, w != "you", w != t.who { Avatar(p: store.person(w), size: 22) }
                                 else if x.who == nil && x.ask == nil {
                                     Menu {
                                         Button("I'll take it") { store.takeStep(id, i) }
@@ -78,6 +83,12 @@ struct TaskView: View {
                             }
                             .padding(.vertical, 8)
                         }
+                        if !t.steps.isEmpty { RowSep() }
+                        Button { newStep = ""; adding = true } label: {
+                            Label("Add a step", systemImage: "plus").font(.app(15, .semibold)).foregroundStyle(Color.shoalBlue)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(.rect)
+                        }
+                        .buttonStyle(.plain).padding(.top, 2)
                     }
                     .glassCard()
                 }
@@ -85,9 +96,23 @@ struct TaskView: View {
                 if t.cat == "meds" && t.n == "Comfort meds" { MedTaskCard(ids: ["morphine", "lorazepam"]) }
                 if t.cat == "meds" && t.n == "Morning meds" { MedTaskCard(ids: ["metoprolol"]) }
 
-                if !t.notes.isEmpty {
+                if t.notes.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Eyebrow(text: "Notes")
+                        Button { noteDraft = ""; editingNote = true } label: {
+                            Label("Add a note", systemImage: "plus").font(.app(15, .semibold)).foregroundStyle(Color.shoalBlue)
+                                .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .glassCard()
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Eyebrow(text: "Notes")
+                            Spacer()
+                            Button("Edit") { noteDraft = t.notes; editingNote = true }.font(.app(14, .semibold)).foregroundStyle(Color.shoalBlue)
+                        }
                         Text(glossed(t.notes)).font(.app(16)).foregroundStyle(Color.ink).lineSpacing(4).tint(Color.ink)
                             .environment(\.openURL, OpenURLAction { u in
                                 if let k = u.host(), TERMS[k] != nil { term = k }
@@ -121,11 +146,12 @@ struct TaskView: View {
                         Button(t.kind == .once ? "Change due date" : "Change days", systemImage: "calendar") { dateSheet = true }
                         if store.kit == true {
                             if let s = store.stoneOf(id) {
-                                Button("Find its stone", systemImage: "dot.radiowaves.left.and.right") { store.say("\(s.label) is blinking") }
+                                Button("Find its stone", systemImage: "dot.radiowaves.left.and.right") { findStone(s.label) }
                             } else {
                                 Button("Link a real stone", systemImage: "link") { store.go(.kit) }
                             }
                         }
+                        Button("Change size · \(t.w.label)", systemImage: "circle.circle") { sizeSheet = true }
                         Button("Hand off", systemImage: "arrow.left.arrow.right") { store.go(.handoff(id, step: nil)) }
                     } label: {
                         Text("•••").font(.app(15, .semibold)).foregroundStyle(Color.muted).frame(width: 36, height: 36)
@@ -135,13 +161,24 @@ struct TaskView: View {
             }
             .sheet(item: Binding(get: { term.map { TermID(id: $0) } }, set: { term = $0?.id })) { k in TermSheet(key: k.id) }
             .sheet(isPresented: $dateSheet) { DateSheet(id: id) }
+            .alert("Add a step", isPresented: $adding) {
+                TextField("What needs doing", text: $newStep)
+                Button("Cancel", role: .cancel) {}
+                Button("Add") { withAnimation(.snappy) { store.addStep(id, newStep) } }
+            }
+            .alert(t.notes.isEmpty ? "Add a note" : "Edit note", isPresented: $editingNote) {
+                TextField("Anything the family should know", text: $noteDraft, axis: .vertical)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { store.setNotes(id, noteDraft) }
+            }
             .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 10) {
+                VStack(spacing: 4) {
                     if t.done {
                         Button("Mark not done") { store.toggleDone(id) }.buttonStyle(PrimaryButton())
                     } else {
-                        Button("Hand off") { store.go(.handoff(id, step: nil)) }.buttonStyle(GhostButton())
                         Button("Mark done") { withAnimation(.snappy) { store.toggleDone(id) } }.buttonStyle(PrimaryButton())
+                        Button("Hand off") { store.go(.handoff(id, step: nil)) }
+                            .font(.app(15.5, .semibold)).foregroundStyle(Color.shoalBlue).frame(maxWidth: .infinity).frame(height: 44)
                     }
                 }
                 .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 6)
@@ -203,9 +240,11 @@ struct TaskView: View {
         .glassCard(radius: 18, padding: 14)
     }
 
-    private func stepLine(_ x: Step) -> String {
+    // Steps that belong to the task's own person need no "is on it" line.
+    private func stepLine(_ x: Step, owner: String?) -> String {
         if let ask = x.ask { return "Asked \(store.names(ask))" }
-        guard let w = x.who else { return "Open" }
+        guard let w = x.who else { return owner == nil ? "" : "Open" }
+        if w == owner { return x.done ? (x.when ?? "") : "" }
         return x.done ? "\(store.name(w)) · \(x.when ?? "Today")" : "\(store.name(w)) is on it"
     }
 }
@@ -447,5 +486,16 @@ struct WhenSheet: View {
                 .overlay(Capsule().strokeBorder(on ? Color.shoalBlue.opacity(0.5) : Color(hex: 0xdde1e6)))
         }
         .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+extension TaskView {
+    // The stone on this page blinks while the real one does, as on the web.
+    func findStone(_ label: String) {
+        store.say("\(label) is blinking")
+        Task {
+            for _ in 0..<6 { withAnimation(.easeInOut(duration: 0.3)) { blink.toggle() }; try? await Task.sleep(for: .seconds(0.45)) }
+            blink = false
+        }
     }
 }

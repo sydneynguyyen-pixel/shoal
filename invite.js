@@ -83,7 +83,6 @@ SCREENS.inviteTime = () => {
     <h1 class="title">When are you usually free?</h1>
     <p class="sub">It helps the family ask at good times. Only "busy" or "free" is shared.</p>
     <div class="chips wrap">${FREE_CHIPS.map((c) => `<button class="chip ${f.includes(c) ? "on" : ""}" aria-pressed="${f.includes(c)}" data-act="invFree" data-id="${c}">${c}</button>`).join("")}</div>
-    <button class="btn-wide" data-act="toast" data-msg="Calendar connecting is simulated in the prototype">Connect a calendar instead</button>
   </div>
   ${solo("Done", "go", ["Skip", "go", 'data-to="inviteDone"'], 'data-to="inviteDone"')}`;
 };

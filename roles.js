@@ -29,13 +29,14 @@ function roleCast() {
   if (!S.people.some((p) => p.id === "nora")) S.people.push({ id: "nora", name: "Nora", img: "avatar-nora.png", tier: "trusted", cap: 2, about: "Neighbor", invited: true, joined: true });
   if (!S.people.some((p) => p.id === "leo")) S.people.push({ id: "leo", name: "Leo", tier: "kid", cap: 2, about: `${L()}'s grandson, 14`, invited: true, joined: true });
   const l = L();
+  const st = (who, ...names) => names.map((n) => ({ n, who, done: false }));
   const add = (t) => { if (!S.tasks.some((x) => x.id === t.id)) S.tasks.push(t); };
-  if (!S.tasks.some((t) => t.on && t.who === "nora")) add(roleTask("rn1", "Bring in the mail", "nora", 1, "there", ["Mon", "Thu"]));
-  add(roleTask("rn2", "Drop off a library book", null, 1, "drive", 3));
-  add(roleTask("rn3", "Walk the dog after lunch", null, 1, "there", ["Wed"], { y: true }));
-  add(roleTask("rk1", `Read the paper to ${l}`, "leo", 1, "there", ["Tue", "Sat"], { y: true }));
-  add(roleTask("rk2", "Water the plants", "leo", 1, "there", ["Wed"], { y: true }));
-  add(roleTask("rk3", `Make a card for ${l}`, null, 1, "there", 4, { y: true }));
+  if (!S.tasks.some((t) => t.on && t.who === "nora")) add(roleTask("rn1", "Bring in the mail", "nora", 1, "there", ["Mon", "Thu"], { notes: "Leave it on the kitchen table.", steps: st("nora", "Grab it from the box", "Leave it inside") }));
+  add(roleTask("rn2", "Drop off a library book", null, 1, "drive", 3, { notes: "It's on the hall table. Due Friday.", steps: st(null, "Grab the book", "Drop it in the return slot") }));
+  add(roleTask("rn3", "Walk the dog after lunch", null, 1, "there", ["Wed"], { y: true, notes: "Leash is by the door. Around the block is plenty.", steps: st(null, "Leash up", "Walk the block") }));
+  add(roleTask("rk1", `Read the paper to ${l}`, "leo", 1, "there", ["Tue", "Sat"], { y: true, notes: "Sports page first. He likes the crossword too.", steps: st("leo", "Read the sports page", "Do the crossword together") }));
+  add(roleTask("rk2", "Water the plants", "leo", 1, "there", ["Wed"], { y: true, notes: "Just the ones in the front window.", steps: st("leo", "Fill the can", "Water the window plants") }));
+  add(roleTask("rk3", `Make a card for ${l}`, null, 1, "there", 4, { y: true, notes: "Anything bright. He keeps them on the dresser.", steps: st(null, "Draw it", "Give it to him") }));
 }
 function ensureRoles() {
   if (S.app.roles) return;
@@ -303,7 +304,10 @@ Object.assign(ACTIONS, {
     if (!S.app.prefs.publicCode) { toast("This family's code is off right now"); return; }
     R.joined = true; render();
   },
-  vcShare: () => toast(`Copied: “Want to help? Enter code ${PUBLIC_CODE} in Shoal.”`),
+  vcShare: () => {
+    const msg = `Want to help? Enter code ${PUBLIC_CODE} in Shoal.`;
+    (navigator.clipboard?.writeText(msg) || Promise.reject()).then(() => toast("Copied"), () => toast("Couldn't copy. The code is " + PUBLIC_CODE));
+  },
   vcNew: () => toast("New code made. The old one stops working."),
   vcUnshare: (d) => { const R = S.app.roles; R.open = R.open.filter((x) => x.id !== d.id); render(); toast("No longer shared with volunteers"); },
   vcAddSheet: () => {

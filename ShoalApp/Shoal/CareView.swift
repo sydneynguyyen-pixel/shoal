@@ -207,7 +207,6 @@ struct CarePage: View {
                 if !keys.isEmpty || !nurse { notes("Most important", keys, .key) }
                 if !nurse {
                     notes("Needs", store.needs, .needs)
-                    notes("Preferences", store.prefs, .prefs)
                 }
             }
         }
@@ -508,14 +507,14 @@ struct NoteSheet: View {
         _text = State(initialValue: note.body)
     }
 
-    private var sectionName: String { ["key": "most important", "needs": "needs", "prefs": "preferences"][s.rawValue]! }
+    private var sectionName: String { ["key": "most important", "needs": "needs"][s.rawValue]! }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SheetHead(title: new ? "Add to \(sectionName)" : note.t,
                       sub: new ? nil : "\(note.by == "you" ? "You" : store.name(note.by)) · \(note.on)")
             if new {
-                field("Title") { TextField(s == .prefs ? "Music" : s == .needs ? "Sleep" : "Doctor", text: $title) }
+                field("Title") { TextField(s == .needs ? "Sleep" : "Doctor", text: $title) }
             }
             field(new ? "What should everyone know?" : "Details") {
                 TextField("", text: $text, axis: .vertical).lineLimit(4...8)

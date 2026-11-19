@@ -32,7 +32,7 @@ struct CareNote: Identifiable, Hashable {
     var alert = false
 }
 
-enum CareSection: String { case key, needs, prefs }
+enum CareSection: String { case key, needs }
 
 func demoMeds() -> [Med] {[
     Med(id: "morphine", name: "Morphine", amt: "5 mg", how: "0.25 mL under the tongue", why: "for pain or hard breathing", prn: true, every: 4),
@@ -63,13 +63,6 @@ func demoNeeds() -> [CareNote] {[
     CareNote(t: "Eating and drinking", body: "Soft foods, small bites. Thickened water only, small sips.", short: "Soft food, thick water", on: "Tue"),
     CareNote(t: "Skin", body: "Turn him every 2 to 3 hours. Lotion on his heels and elbows.", short: "Turn every 2 to 3 hours", by: "bill", on: "Sun"),
     CareNote(t: "Bathroom", body: "Wears briefs. Supplies are under the bathroom sink.", short: "Briefs, under the sink"),
-]}
-
-func demoPrefs() -> [CareNote] {[
-    CareNote(t: "Likes", body: "Jazz on the radio, the window open a crack, cold ginger ale.", short: "Jazz, ginger ale", by: "sam", on: "Sat"),
-    CareNote(t: "Doesn't like", body: "Loud TV. Being rushed in the morning.", short: "Loud TV, rushing", on: "Mon"),
-    CareNote(t: "Comfort", body: "A cool cloth on his forehead. Someone holding his hand.", short: "Cool cloth, hand held", on: "Tue"),
-    CareNote(t: "Visits", body: "Sam's video call at 7 PM. Pastor Jim on Sundays after church.", short: "Sam 7 PM, Pastor Sun", by: "you", on: "Oct 4"),
 ]}
 
 // The short summary on a tile: the note's own, or its first sentence.
@@ -147,7 +140,6 @@ extension Store {
         switch s {
         case .key: put(&careKey)
         case .needs: put(&needs)
-        case .prefs: put(&prefs)
         }
         say("Saved. Everyone sees the change.")
     }
@@ -156,7 +148,6 @@ extension Store {
         switch s {
         case .key: careKey.removeAll { $0.id == n.id }
         case .needs: needs.removeAll { $0.id == n.id }
-        case .prefs: prefs.removeAll { $0.id == n.id }
         }
         say("Removed")
     }

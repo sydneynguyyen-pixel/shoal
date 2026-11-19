@@ -153,7 +153,7 @@ extension Store {
 
 // One thing you said and how Pebble answered it.
 struct Exchange: Identifiable {
-    enum Stage { case review, done, sensitive }
+    enum Stage { case review, done, sensitive, info }
     let id = UUID()
     var said: String
     var stage: Stage
@@ -161,6 +161,45 @@ struct Exchange: Identifiable {
     var skipped: [String] = []
     var done: [(st: StoneState, n: String, m: String)] = []
     var newId: String?
+    var reply = ""             // .info: Pebble's answer, with tasks to open
+    var ids: [String] = []
+    var ask: String?           // a task to find someone for
+    var cta = ""
+    var shown = 0              // 0 your message, 1 Pebble thinking, 2 Pebble typing, 3 everything
+    var typed = 0              // words of Pebble's reply shown so far
+    var passed = false         // you said "Not now"
+}
+
+// A small pill button, so an answer doesn't push you into one choice.
+struct SmallPill: ButtonStyle {
+    var primary = true
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.app(15, .semibold)).foregroundStyle(primary ? .white : Color.ink)
+            .padding(.horizontal, 18).frame(height: 40)
+            .background(primary ? Color.shoalBlue : Color.white.opacity(0.85), in: .capsule)
+            .overlay(Capsule().strokeBorder(primary ? Color.clear : Color(hex: 0xe3e1dc)))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+// Three dots while Pebble thinks.
+struct TypingDots: View {
+    var body: some View {
+        TimelineView(.animation) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<3) { i in
+                    let v = (sin(t * 6 - Double(i) * 0.8) + 1) / 2
+                    Circle().fill(Color.muted).frame(width: 7, height: 7)
+                        .opacity(0.35 + 0.65 * v).offset(y: -3 * v)
+                }
+            }
+        }
+        .frame(height: 20)
+        .accessibilityLabel("Pebble is thinking")
+    }
 }
 
 struct PebbleView: View {
@@ -174,11 +213,11 @@ struct PebbleView: View {
     @State private var pairing = false
     @FocusState private var typing: Bool
 
-    private var samples: [(String, String)] { [
-        ("A busy week", "The hospice nurse said \(LOVED) might need a hospital bed soon. And his refill runs out Friday. I can't do Thursday's visit, I have a work thing."),
-        ("Things around the house", "Mom said the stair rail is loose again. We need to call about the hospital bill. I'm honestly wiped out this week."),
-        ("A hard moment", "\(LOVED) is breathing strangely and I can't wake him."),
-    ] }
+    // The chips say what Pebble can do, and each one does it.
+    private let asks = ["Can you plan my week?", "Is anything urgent?", "What's on my plate?", "Does anything still need someone?"]
+    private let weekSample = "The hospice nurse said \(LOVED) might need a hospital bed soon. And his refill runs out Friday. I can't do Thursday's visit, I have a work thing."
+    // Questions not asked yet in this chat.
+    private var more: [Int] { asks.indices.filter { i in !chat.contains { $0.said == asks[i] } } }
     private var blank: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
@@ -192,15 +231,24 @@ struct PebbleView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
-                            ForEach($chat) { $x in exchange($x, live: x.id == chat.last?.id) }
+                            ForEach($chat) { $x in exchange($x, live: !x.passed && (x.id == chat.last?.id || x.stage == .review)) }
                             Color.clear.frame(height: 1).id("end")
                         }
                         .padding(.horizontal, 20).padding(.vertical, 12)
                     }
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.interactively)
+                    // Keep the newest message in view as Pebble's answer grows.
+                    .defaultScrollAnchor(.bottom)
+                    .defaultScrollAnchor(.bottom, for: .sizeChanges)
                     .onChange(of: chat.count) { withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) } }
                     .onChange(of: chat.last?.stage) { withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) } }
+                    .onChange(of: chat.last?.shown) {
+                        withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) }
+                        // Cards fade in after the text; scroll again once they've taken their space.
+                        Task { try? await Task.sleep(for: .milliseconds(300)); withAnimation(.snappy) { proxy.scrollTo("end", anchor: .bottom) } }
+                    }
+                    .onChange(of: chat.last?.typed) { proxy.scrollTo("end", anchor: .bottom) }
                 }
             }
         }
@@ -278,35 +326,75 @@ struct PebbleView: View {
             .background(Color(hex: 0xebe8e3, 0.9), in: .rect(cornerRadius: 20))
             .frame(maxWidth: 300, alignment: .trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
 
+        if e.shown >= 1 {
+            // Pebble answers in a bubble: dots while thinking, then the words come in.
+            HStack(alignment: .bottom, spacing: 8) {
+                Image(e.stage == .sensitive ? "pebble_sensitive_01" : e.stage == .done ? "pebble_carry_03" : "pebble_offer_open_hands")
+                    .resizable().scaledToFit().frame(width: 32, height: 32)
+                Group {
+                    if e.shown == 1 { TypingDots() }
+                    else { reply(e.shown >= 3 ? pebText(e) : words(pebText(e), e.typed)) }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(.white.opacity(0.92), in: .rect(cornerRadius: 20))
+                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white))
+                .shadow(color: Color(hex: 0x21262e, 0.05), radius: 8, y: 4)
+                Spacer(minLength: 24)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
+        }
+
+        if e.shown >= 3 {
         VStack(alignment: .leading, spacing: 10) {
-            Image(e.stage == .sensitive ? "pebble_sensitive_01" : e.stage == .done ? "pebble_carry_03" : "pebble_offer_open_hands")
-                .resizable().scaledToFit().frame(width: 34, height: 34)
             switch e.stage {
+            case .info:
+                if !e.ids.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(e.ids, id: \.self) { id in
+                            if let t = store.task(id) { if id != e.ids.first { RowSep() }; TaskLine(t: t) }
+                        }
+                    }
+                    .glassCard(radius: 18, padding: 12)
+                }
+                if let id = e.ask, live {
+                    Button(e.cta) { store.go(.handoff(id, step: nil)) }.buttonStyle(SmallPill())
+                }
             case .sensitive:
-                reply("That sounds really hard. I can't help with symptoms or medicine. \(LOVED)'s hospice team can, any time of day or night.")
                 Label("I didn't save what you said, and I never contact hospice on my own.", systemImage: "lock")
                     .font(.meta).foregroundStyle(Color.muted)
-                Button("Call hospice") { store.say("In the real app this calls the hospice number the family saved.") }
-                    .buttonStyle(PrimaryButton()).frame(width: 180)
+                Button("Call hospice") { if let u = URL(string: "tel:4085550199") { UIApplication.shared.open(u) } }
+                    .buttonStyle(SmallPill())
             case .review:
-                reply(e.props.isEmpty ? "I didn't find anything to add. Try saying what needs doing." : "Here's what I'd add. Tap one to leave it out.")
-                ForEach(x.props) { $p in proposal($p, live: live) }
+                if !e.props.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(x.props) { $p in
+                        if p.id != x.wrappedValue.props.first?.id { RowSep() }
+                        proposal($p, live: live)
+                    }
+                }
+                .glassCard(radius: 18, padding: 12)
+                }
                 if let first = e.skipped.first {
                     (Text("I left \(e.skipped.count == 1 ? "one thing" : "\(e.skipped.count) things") out. ").bold()
                      + Text(e.skipped.contains { hits(PEB_MEDS, $0) } ? "Anything about medicine or symptoms is a question for \(LOVED)'s hospice nurse. " : "")
                      + Text("“\(first)”"))
                         .font(.app(13.5)).foregroundStyle(Color.sectionInk)
                 }
-                if live {
+                // Small choices, not one big button: add, skip, or keep talking.
+                if live && !e.props.isEmpty {
                     let on = e.props.filter { $0.on && $0.kind != .dup }.count
-                    if on > 0 {
-                        Button(on == 1 ? "Yes, add this" : "Yes, add these \(on)") { yes(x) }
-                            .buttonStyle(PrimaryButton()).padding(.top, 2)
+                    HStack(spacing: 10) {
+                        if on > 0 { Button(on == 1 ? "Add it" : "Add these \(on)") { yes(x) }.buttonStyle(SmallPill()) }
+                        Button("Not now") { withAnimation(.snappy) { x.wrappedValue.passed = true } }.buttonStyle(SmallPill(primary: false))
                     }
+                    .padding(.top, 2)
+                    Text("Or tell me what to change.").font(.meta).foregroundStyle(Color.muted)
+                } else if e.passed {
+                    Text("Okay, nothing added.").font(.meta).foregroundStyle(Color.muted)
                 }
             case .done:
-                reply("Done. Here's where they went.")
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(e.done.enumerated()), id: \.offset) { _, d in
                         HStack(spacing: 12) {
@@ -329,6 +417,22 @@ struct PebbleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    // What Pebble says in its bubble.
+    private func pebText(_ e: Exchange) -> String {
+        switch e.stage {
+        case .info: return e.reply
+        case .sensitive: return "That sounds really hard. I can't help with symptoms or medicine. \(LOVED)'s hospice team can, any time of day or night."
+        case .review: return e.props.isEmpty ? "I didn't find anything to add. Try saying what needs doing." : "Here's what I'd add. Tap one to leave it out."
+        case .done: return "Done. Here's where they went."
+        }
+    }
+
+    private func words(_ s: String, _ n: Int) -> String {
+        s.split(separator: " ").prefix(n).joined(separator: " ")
     }
 
     private func reply(_ s: String) -> some View {
@@ -339,8 +443,7 @@ struct PebbleView: View {
         let v = p.wrappedValue
         return Button { if v.kind != .dup { withAnimation(.snappy) { p.wrappedValue.on.toggle() } } } label: {
             HStack(alignment: .top, spacing: 12) {
-                if v.kind == .dup { Stone(state: .done, w: .small, base: 22).frame(width: 26) }
-                else { Image(systemName: v.on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(v.on ? Color.shoalBlue : Color.muted) }
+                Stone(state: v.kind == .dup ? .done : v.kind == .open ? .open : .progress, w: .small, base: 24).frame(width: 30)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(v.n).font(.app(15, .semibold)).foregroundStyle(Color.ink)
                     Text(v.m).font(.meta).foregroundStyle(v.kind == .step || v.kind == .dup ? Color(hex: 0x8a5d0c) : Color.muted)
@@ -348,9 +451,12 @@ struct PebbleView: View {
                 }
                 .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
+                if v.kind != .dup {
+                    Image(systemName: v.on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(v.on ? Color.shoalBlue : Color(hex: 0xb7bcc4))
+                }
             }
             .opacity(v.on || v.kind == .dup ? 1 : 0.5)
-            .pearl(radius: 16, padding: 12)
+            .padding(.vertical, 6)
         }
         .buttonStyle(Pressable())
         .disabled(v.kind == .dup || !live)
@@ -361,11 +467,28 @@ struct PebbleView: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !chat.isEmpty && blank && !mic.on && (chat.last?.shown ?? 0) >= 3 && !more.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(more, id: \.self) { i in
+                            Button { ask(i) } label: {
+                                Text(asks[i]).font(.app(14, .medium)).foregroundStyle(Color.ink)
+                                    .padding(.horizontal, 14).frame(height: 36)
+                                    .background(.white.opacity(0.75), in: .capsule)
+                                    .overlay(Capsule().strokeBorder(.white))
+                            }
+                            .buttonStyle(Pressable())
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .transition(.opacity)
+            }
             if chat.isEmpty && blank && !mic.on {
                 FlowRow(spacing: 8) {
-                    ForEach(samples, id: \.0) { s in
-                        Button { text = s.1 } label: {
-                            Text(s.0).font(.app(14, .medium)).foregroundStyle(Color.ink)
+                    ForEach(asks.indices, id: \.self) { i in
+                        Button { ask(i) } label: {
+                            Text(asks[i]).font(.app(14, .medium)).foregroundStyle(Color.ink)
                                 .padding(.horizontal, 14).frame(height: 38)
                                 .background(.white.opacity(0.75), in: .capsule)
                                 .overlay(Capsule().strokeBorder(.white))
@@ -407,6 +530,14 @@ struct PebbleView: View {
             .shadow(color: Color(hex: 0x21262e, 0.08), radius: 14, y: 6)
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
+        // A soft fade behind the chips and text box so the chat doesn't show through.
+        .background {
+            if !chat.isEmpty {
+                LinearGradient(stops: [.init(color: Color(hex: 0xf5f7fb, 0), location: 0), .init(color: Color(hex: 0xf5f7fb, 0.96), location: 0.3)],
+                               startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea(edges: .bottom)
+            }
+        }
         .animation(.snappy, value: blank)
         .animation(.snappy, value: mic.on)
     }
@@ -428,6 +559,34 @@ struct PebbleView: View {
         if let r = store.hear(said) { e = Exchange(said: said, stage: .review, props: r.props, skipped: r.skipped) }
         else { e = Exchange(said: said, stage: .sensitive) }
         withAnimation(.snappy) { chat.append(e) }
+        play(e.id)
+    }
+
+    private func ask(_ i: Int) {
+        mic.stop(); typing = false
+        let said = asks[i]
+        var e = Exchange(said: said, stage: .info)
+        switch i {
+        case 0:
+            let r = store.hear(weekSample)
+            e.stage = .review; e.props = r?.props ?? []; e.skipped = r?.skipped ?? []
+        case 1:
+            let u = store.active.filter(\.urgent).sorted { $0.date < $1.date }
+            e.reply = u.isEmpty ? "Nothing is urgent right now." : u.count == 1 ? "One thing is urgent." : "\(u.count) things are urgent."
+            e.ids = u.map(\.id)
+        case 2:
+            let all = store.active.filter { $0.who == "you" }.sorted { $0.date < $1.date }
+            e.reply = all.isEmpty ? "Nothing on your plate right now." : all.count == 1 ? "You have one thing." : "You have \(all.count) things. These come up first."
+            e.ids = all.prefix(4).map(\.id)
+        default:
+            if let t = store.active.first(where: { $0.who == nil }) {
+                let pick = store.pebblePick(t)
+                e.reply = pick.map { "“\(t.n)” still needs someone. \($0.p.name) has \($0.why)." } ?? "“\(t.n)” still needs someone."
+                e.ids = [t.id]; e.ask = t.id; e.cta = pick.map { "Ask \($0.p.name)" } ?? "Find someone"
+            } else { e.reply = "Every task has someone. Nothing to ask for." }
+        }
+        withAnimation(.snappy) { chat.append(e) }
+        play(e.id)
     }
 
     private func yes(_ x: Binding<Exchange>) {
@@ -438,6 +597,30 @@ struct PebbleView: View {
             x.wrappedValue.done = done
             x.wrappedValue.newId = newId
             x.wrappedValue.stage = .done
+            x.wrappedValue.shown = 2
+            x.wrappedValue.typed = 0
+        }
+        play(x.wrappedValue.id, think: false)
+    }
+
+    // Sent, then Pebble thinks, then types its answer, then the rest fades in.
+    private func play(_ id: UUID, think: Bool = true) {
+        func set(_ f: (inout Exchange) -> Void) { if let i = chat.firstIndex(where: { $0.id == id }) { f(&chat[i]) } }
+        Task { @MainActor in
+            if think {
+                try? await Task.sleep(for: .milliseconds(350))
+                withAnimation(.snappy) { set { $0.shown = 1 } }
+                try? await Task.sleep(for: .milliseconds(1000))
+                withAnimation(.snappy) { set { $0.shown = 2 } }
+            }
+            guard let e = chat.first(where: { $0.id == id }) else { return }
+            let n = pebText(e).split(separator: " ").count
+            for i in 1...max(n, 1) {
+                set { $0.typed = i }
+                try? await Task.sleep(for: .milliseconds(45))
+            }
+            try? await Task.sleep(for: .milliseconds(150))
+            withAnimation(.snappy) { set { $0.shown = 3 } }
         }
     }
 }

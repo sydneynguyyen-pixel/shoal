@@ -2,7 +2,8 @@ import SwiftUI
 
 struct MyJarView: View {
     @Environment(Store.self) private var store
-    @State private var tab: Kind? = nil
+    enum Filter: String, CaseIterable { case all = "All", urgent = "Urgent", once = "One-time", ongoing = "Ongoing" }
+    @State private var tab: Filter = .all
     @State private var showDone = false
     @State private var reviewing: Request?
 
@@ -11,61 +12,45 @@ struct MyJarView: View {
         let live = all.filter { !$0.done }
         let done = all.filter(\.done)
         let urgent = live.filter(\.urgent)
-        let today = live.filter { $0.occurs(on: TODAY) || $0.urgent }.count
-        let shown = live.filter { tab == nil || $0.kind == tab }
+        let shown = live.filter { t in
+            switch tab { case .all: true; case .urgent: t.urgent; case .once: t.kind == .once; case .ongoing: t.kind == .repeating }
+        }
             .sorted { (order($0), $0.date) < (order($1), $1.date) }
         let onBreak = store.checkIn == .onBreak && !store.heldOpen
 
         Page {
-            HStack {
-                Text("Your jar").font(.title()).foregroundStyle(Color.navy)
-                Spacer()
-                Button { store.go(.newTask) } label: {
-                    Image(systemName: "plus").font(.system(size: 15, weight: .regular)).foregroundStyle(Color.ink).frame(width: 44, height: 44)
-                        .background(.white.opacity(0.85), in: .circle).overlay(Circle().strokeBorder(.white))
-                        .shadow(color: Color(hex: 0x13315d, 0.08), radius: 10, y: 4)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add a task")
-            }
             VStack(spacing: 6) {
                 Jar(who: "you", width: 120)
                 Text(live.isEmpty ? (store.mine("you").isEmpty ? "No tasks yet" : "All done") : "\(live.count) to do").font(.app(14)).foregroundStyle(Color.muted)
             }
-            .frame(maxWidth: .infinity).padding(.top, 4)
-            HStack(spacing: 0) {
-                stat("\(today)", "today", .ink)
-                Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(width: 1, height: 36)
-                stat("\(urgent.count)", "urgent", .amber)
-                Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(width: 1, height: 36)
-                stat("\(live.count)", "left", .ink)
+            .frame(maxWidth: .infinity).padding(.top, 4).padding(.bottom, 8)
+            // Shrinks and fades as it scrolls away, like a large title.
+            .visualEffect { v, g in
+                let y = g.frame(in: .scrollView).minY, h = max(g.size.height, 1)
+                let p = min(max(-y / h, 0), 1)
+                return v.scaleEffect(1 - 0.4 * p, anchor: .bottom).opacity(1 - p)
             }
-            .padding(.bottom, 8)
 
             if store.ringOn {
                 HStack { Spacer(); Ring(done: done.count, urgent: urgent.count, total: all.count); Spacer() }
                     .glassCard()
             }
 
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 22) {
-                    utab("All", live.count, nil)
-                    utab("One-time", live.filter { $0.kind == .once }.count, .once)
-                    utab("Ongoing", live.filter { $0.kind == .repeating }.count, .repeating)
-                    Spacer()
+            if onBreak && !store.requests.isEmpty {
+                requestCard(eyebrow: "On hold till Sunday", title: "\(plural(store.requests.count, "ask")) waiting", cta: "See") { store.heldOpen = true }
+            } else {
+                ForEach(store.requests) { r in
+                    requestCard(eyebrow: "Request from \(store.name(r.from))", title: r.n, cta: "Review") { reviewing = r }
                 }
-                .overlay(alignment: .bottom) { Rectangle().fill(Color(hex: 0xe3e1dc, 0.8)).frame(height: 1) }
-                .padding(.bottom, 2)
+            }
 
-                if tab != .repeating {
-                    if onBreak && !store.requests.isEmpty {
-                        requestRow(eyebrow: "On hold till Sunday", title: "\(plural(store.requests.count, "ask")) waiting", cta: "See") { store.heldOpen = true }
-                    } else {
-                        ForEach(store.requests) { r in
-                            requestRow(eyebrow: "Request from \(store.name(r.from))", title: r.n, cta: "Review") { reviewing = r }
-                        }
-                    }
-                }
+            Picker("Show", selection: $tab.animation(.snappy)) {
+                ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.vertical, 2)
+
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(shown) { t in
                     if t.id != shown.first?.id { RowSep() }
                     HStack(spacing: 0) {
@@ -76,15 +61,16 @@ struct MyJarView: View {
                         .accessibilityLabel("Mark \(t.n) done")
                     }
                 }
-                if shown.isEmpty { Text("Nothing here. Tap + to add a task.").font(.meta).foregroundStyle(Color.muted).padding(.vertical, 14) }
+                if shown.isEmpty { Text(tab == .urgent ? "Nothing urgent." : "Nothing here. Tap + to add a task.").font(.meta).foregroundStyle(Color.muted).padding(.vertical, 14) }
             }
             .glassCard()
 
             if !done.isEmpty {
                 Button { withAnimation(.snappy) { showDone.toggle() } } label: {
-                    HStack { Text("Done · \(done.count)").font(.app(14, .semibold)).foregroundStyle(Color.sectionInk)
+                    HStack { Text("Done · \(done.count)").font(.app(15, .semibold)).foregroundStyle(Color.sectionInk)
+                        Spacer()
                         Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).rotationEffect(.degrees(showDone ? 90 : 0)).foregroundStyle(Color.muted) }
-                    .padding(.horizontal, 4).padding(.top, 6)
+                    .padding(.horizontal, 4).padding(.top, 14).frame(minHeight: 44).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 if showDone {
@@ -92,7 +78,13 @@ struct MyJarView: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .contentMargins(.bottom, 90, for: .scrollContent)   // keeps Done clear of the tab bar
+        .navigationTitle("Your jar")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Add a task", systemImage: "plus") { store.go(.newTask) }
+            }
+        }
         .sheet(item: $reviewing) { r in
             VStack(alignment: .leading, spacing: 12) {
                 Eyebrow(text: "Request from \(store.name(r.from))", color: .shoalBlue)
@@ -112,41 +104,22 @@ struct MyJarView: View {
 
     private func order(_ t: CareTask) -> Int { t.urgent ? 0 : t.kind == .once ? 1 : 2 }
 
-    private func stat(_ n: String, _ l: String, _ c: Color) -> some View {
-        VStack(spacing: 1) {
-            Text(n).font(.app(22, .semibold)).foregroundStyle(c).monospacedDigit()
-            Text(l).font(.app(14)).foregroundStyle(Color.muted)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // Underlined tabs: the picked one in ink with a 2pt rule under it.
-    private func utab(_ l: String, _ n: Int, _ k: Kind?) -> some View {
-        let on = tab == k
-        return Button { withAnimation(.snappy) { tab = k } } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(l).font(.app(16, on ? .semibold : .medium)).foregroundStyle(on ? Color.ink : Color.muted)
-                Text("\(n)").font(.app(12, .semibold)).foregroundStyle(Color.muted.opacity(0.8)).monospacedDigit()
-            }
-            .frame(height: 46)
-            .overlay(alignment: .bottom) { if on { Capsule().fill(Color.ink).frame(height: 2) } }
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? [.isSelected] : [])
-    }
-
-    private func requestRow(eyebrow: String, title: String, cta: String, action: @escaping () -> Void) -> some View {
+    // A request isn't a task yet, so it gets its own tinted card with a clear button.
+    private func requestCard(eyebrow: String, title: String, cta: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Eyebrow(text: eyebrow, color: .shoalBlue)
+                Eyebrow(text: eyebrow, color: .navy)
                 Text(title).font(.app(16, .semibold)).foregroundStyle(Color.ink)
             }
             Spacer()
-            Button(cta, action: action).font(.app(13, .semibold)).foregroundStyle(Color.shoalBlue)
+            Button(cta, action: action)
+                .font(.app(14, .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 16).padding(.vertical, 9)
+                .background(Color.shoalBlue, in: .capsule)
         }
-        .padding(.vertical, 14)
-        .overlay(alignment: .bottom) { RowSep() }
+        .padding(.vertical, 14).padding(.horizontal, 16)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.shoalBlue.opacity(0.09)).background(.white.opacity(0.8), in: .rect(cornerRadius: 22)))
+        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.9)))
     }
 }
 

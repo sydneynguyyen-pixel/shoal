@@ -1,6 +1,6 @@
 :root {
   --navy: #13315d;
-  --muted: #6e737c;
+  --muted: #5a5f68;
   --ink: #22262e;
   --blue: #2070d9;
   --blue-label: #2f6fcb;
@@ -2330,3 +2330,89 @@ body.test .notes, body.test .panel-toggle { display: none; }
 .setup-card.sc-one { display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px 16px; text-align: left; }
 .setup-card.sc-one .tl-txt { flex: 1; min-width: 0; }
 .setup-card.sc-one .n { font-size: 17px; font-weight: 600; }
+
+/* Home: the urgent task leads, under a smaller greeting. */
+.title.h-greet { font-size: 28px; line-height: 33px; margin-bottom: 14px; }
+.h-stack.hero .h-ios-main { padding: 14px 14px 14px 12px; }
+.h-stack.hero .h-ios .n { font-size: 16px; line-height: 21px; }
+.h-stack.hero .h-ios .m { font-size: 14px; line-height: 19px; }
+.h-stack.hero .h-ios-cta { padding: 8px 16px; font-size: 14px; color: #fff; background: var(--navy); box-shadow: none; }
+.h-day { margin: 14px 4px 2px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+/* My jar: requests in their own card, a segmented filter, Done as a section header. */
+.jar-req { display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--blue, #418ef3) 9%, rgba(255, 255, 255, 0.8)); }
+.jar-req .eyebrow { margin: 0 0 3px; color: var(--navy); }
+.jar-req .n { font-size: 16px; font-weight: 600; color: var(--ink); }
+.jar-req-btn { flex: none; padding: 9px 16px; border-radius: 16px; font-size: 14px; font-weight: 600; color: #fff; background: var(--navy); }
+.jar-seg { margin-bottom: 12px; }
+.jar-seg button { font-size: 13.5px; white-space: nowrap; padding: 0 4px; }
+.jar-done { width: 100%; text-align: left; align-items: center; margin-bottom: 120px; }
+.jar-done:has(+ .card) { margin-bottom: 10px; }
+.jar-done img { width: 7px; height: 12px; transition: transform 0.2s; }
+.content.app:has(.jar-done + .card) { padding-bottom: 120px; }
+.jar-list .tick { padding: 8px 2px 8px 12px; }
+/* The jar shrinks and fades as it scrolls away, like an iOS large title. */
+@supports (animation-timeline: view()) {
+  .jar-free { animation: jarAway linear both; animation-timeline: view(); animation-range: exit 0% exit 100%; transform-origin: 50% 100%; }
+  @keyframes jarAway { to { transform: scale(0.6); opacity: 0; } }
+}
+.section-h.ppl-first { margin-top: 6px; }
+
+/* Readability: meta text at 15px, one muted tone that clears 4.5:1. */
+.small, .tl-txt .m, .tl-txt .why, .person .m, .date-row .m, .cal-opt .m, .option .d, .path .d,
+.task-card .meta, .step small, .sheet-list button small, .glow-tile small, .stage-card .cap,
+.group-head .count, .private, .cond-name span, .loose, .more, .finished { font-size: 15px; line-height: 20px; }
+.linkish { font-size: 15px; }
+.proto-acct .btn-text { display: block; margin: 10px auto 0; }
+
+/* Task page: one meta line under the title (who · when · urgency). */
+.task-meta { margin: 6px 0 14px; font-size: 15px; line-height: 21px; color: var(--muted); }
+.task-meta .linkish { font-weight: 600; }
+.task-meta .st-urgent { color: #8a5a07; font-weight: 600; }
+/* The secondary action in a footer reads as a link, not a second button. */
+.footer .btn-text { color: var(--blue); font-weight: 600; }
+
+/* Task page: Steps and Notes always show, with add rows */
+.add-step { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; color: var(--blue); font-size: 15px; font-weight: 600; text-align: left; }
+.stp + .add-step { border-top: 1px solid var(--line); }
+.add-step svg { flex: none; }
+.stepsc .add-step { margin-bottom: 4px; }
+.notes-head { display: flex; align-items: center; justify-content: space-between; }
+.notes-head .linkish { font-size: 14px; font-weight: 600; color: var(--blue); }
+.notes-card .add-step { min-height: 36px; margin-top: 4px; }
+.sheet .sheet-field { margin-top: 14px; min-height: 0; }
+.sheet textarea.sheet-field { min-height: 110px; }
+.tline .done-check { flex: none; color: var(--blue); margin-left: auto; }
+
+/* Dad's profile: the card at the top of People and his page */
+.lv-av { flex: none; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #f6d9b8, #e9b98c); color: #7a4a1e; border: 2px solid #fff; font-family: "Fraunces", serif; font-weight: 400; line-height: 1; }
+.lv-card { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; text-align: left; margin-bottom: 8px; }
+.lv-card .tl-txt { flex: 1; min-width: 0; }
+.lv-card .n { font-size: 17px; }
+.lv-dots { display: flex; gap: 5px; margin-top: 6px; }
+.lv-dots i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
+.lv-head { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 4px 0 14px; }
+.lv-head .title { margin: 0; font-size: 30px; }
+.lv-head .small { margin: 0; }
+.lv-lock { color: var(--muted); display: grid; place-items: center; }
+.lv-letter { font-size: 16px; font-weight: 600; }
+.lv-likes { display: flex; flex-direction: column; gap: 12px; width: 100%; padding: 16px; text-align: left; margin-bottom: 10px; }
+.lv-lh { display: flex; align-items: center; gap: 10px; }
+.lv-lh b { flex: 1; font-size: 16px; font-weight: 600; color: var(--ink); }
+.lv-sq { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; }
+.lv-big { font-family: "Fraunces", serif; font-size: 26px; line-height: 1; }
+.lv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lv-chip { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px; border-radius: 15px; font-size: 13.5px; font-weight: 500; color: var(--ink); }
+.lv-chip.not { color: var(--muted); border: 1px solid #dde1e6; }
+.lv-chip.x svg { color: var(--muted); margin-left: 1px; }
+.lv-sh { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.lv-sh h3 { margin: 0; }
+.lv-gt { margin: 14px 0 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.lv-seg { display: flex; padding: 2px; margin-top: 18px; border-radius: 10px; background: rgba(118, 118, 128, 0.12); }
+.lv-seg button { flex: 1; height: 32px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.lv-seg button.on { background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.lv-add { display: flex; gap: 8px; margin-top: 10px; }
+.lv-add input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 14px; border: 1px solid #dde1e6; background: #fff; font: inherit; font-size: 15px; outline: none; }
+.lv-add input:focus { border-color: var(--blue); }
+.lv-add .pc-pill { height: 44px; border-radius: 22px; }
+.lv-done { margin-top: 20px; }

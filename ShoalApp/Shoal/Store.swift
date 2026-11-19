@@ -7,6 +7,7 @@ enum Route: Hashable {
     case person(String)
     case newTask
     case care(nurse: Bool)
+    case loved
     case kit, stones, stone(Int), month
     case setup(String)
 }
@@ -78,7 +79,7 @@ final class Store {
     var doses: [Dose] = demoDoses()
     var careKey: [CareNote] = demoKey()
     var needs: [CareNote] = demoNeeds()
-    var prefs: [CareNote] = demoPrefs()
+    var likes: [Likes] = demoLikes()
     var careUnlockedAt: Date?
     var pin = "1234"
     var pinSetting = false   // choosing a new PIN on the care page
@@ -111,6 +112,8 @@ final class Store {
     // One navigation path per tab, so each tab keeps its place.
     var tab = 0
     var paths: [[Route]] = [[], [], [], [], []]
+    // The Home kit page is dark night blue, so the status bar and tab bar go dark while it's on top.
+    var onDarkPage: Bool { paths[tab].last == .kit }
 
     func go(_ r: Route) { paths[tab].append(r) }
     func back() { if !paths[tab].isEmpty { paths[tab].removeLast() } }
@@ -129,7 +132,7 @@ final class Store {
         people = DEMO_PEOPLE; tasks = demoTasks(); checkIn = nil; heldOpen = false
         thanked = []; dismissed = []; pebbleLog = []; costTasks = [:]; toldFamily = false; handReplies = 0
         requests = [Request(id: "r1", from: "mom", n: "Call the pharmacy", note: "They'll only talk to the main contact.")]
-        meds = demoMeds(); doses = demoDoses(); careKey = demoKey(); needs = demoNeeds(); prefs = demoPrefs()
+        meds = demoMeds(); doses = demoDoses(); careKey = demoKey(); needs = demoNeeds(); likes = demoLikes()
         stones = demoStones(); setupTasks = []; sample = true
     }
 
@@ -138,7 +141,7 @@ final class Store {
         people = DEMO_PEOPLE.filter { $0.id == "you" }; tasks = []; checkIn = nil; heldOpen = false
         thanked = []; dismissed = []; pebbleLog = []; costTasks = [:]; toldFamily = false; handReplies = 0
         requests = []
-        meds = []; doses = []; careKey = []; needs = []; prefs = []
+        meds = []; doses = []; careKey = []; needs = []; likes = []
         stones = demoStones().map { var s = $0; s.task = nil; return s }; setupTasks = []; sample = false
     }
 
@@ -239,6 +242,17 @@ final class Store {
     func toggleStep(_ id: String, _ s: Int) {
         guard let i = idx(id), tasks[i].steps.indices.contains(s) else { return }
         tasks[i].steps[s].done.toggle()
+    }
+
+    func addStep(_ id: String, _ name: String) {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard let i = idx(id), !n.isEmpty else { return }
+        tasks[i].steps.append(Step(n: n, who: tasks[i].who))
+    }
+
+    func setNotes(_ id: String, _ text: String) {
+        guard let i = idx(id) else { return }
+        tasks[i].notes = text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func takeStep(_ id: String, _ s: Int) {

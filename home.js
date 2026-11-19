@@ -31,9 +31,9 @@ function homeNew() {
   <div class="content app">
     <div class="apphead">${shoalMark(30)}<span class="head-btns">
       <button class="bell" data-act="go" data-to="notifications" aria-label="Notifications">${icon("bell")}${unread() ? `<i class="dot"></i>` : ""}</button></span></div>
-    ${notifStack(urgent, finished)}
     <p class="eyebrow grey">${TODAY.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-    <h1 class="title">Good morning</h1>
+    <h1 class="title h-greet">Good morning</h1>
+    ${notifStack(urgent, null)}
     ${setupCard()}
     ${S.tasks.length ? `<section class="h-jars" aria-label="Family jars">${familyJars()}</section>
 
@@ -42,6 +42,7 @@ function homeNew() {
     <section class="h-w wide" aria-label="This week">
       <div class="k-tile-top"><span class="k-lab">This week</span></div>
       ${active().length ? `${loadChart(week)}
+        <p class="h-day">${iso(day) === iso(TODAY) ? "Today" : DAY_FULL[dayKey(day)]}, ${day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
         <div class="tlist flat">${today.length ? today.slice(0, S.app.weekAll ? 99 : 3).map((t) => taskLine(t)).join("") : `<p class="small empty">Nothing on ${DAY_FULL[dayKey(day)]}.</p>`}</div>
         ${today.length > 3 ? `<button class="k-link" data-act="weekAll">${S.app.weekAll ? "Show less" : `${today.length - 3} more`}</button>` : ""}`
         : `<p class="small empty">No tasks yet. Once you add some, your family's week shows here.</p>`}
@@ -52,6 +53,7 @@ function homeNew() {
 
 /* ---------- Notifications: iOS banners at the top, not widgets ---------- */
 
+// Home shows only the urgent one, as the page's lead card; finished tasks wait in the bell.
 // Each one shows until you open it or clear it, then lives on in the bell. Two or more stack like iOS;
 // tap the stack to fan them out. They drop in once, the first time Home shows them.
 let notesSeen = new Set();
@@ -65,7 +67,7 @@ function notifStack(urgent, finished) {
   if (!items.length) return "";
   const open = S.app.stackOpen || items.length === 1, fresh = items.some((n) => !notesSeen.has(n.key));
   items.forEach((n) => notesSeen.add(n.key));
-  return `<div class="h-stack ${open ? "open" : "stacked"} ${fresh ? "fresh" : ""}" style="--n:${items.length}">
+  return `<div class="h-stack hero ${open ? "open" : "stacked"} ${fresh ? "fresh" : ""}" style="--n:${items.length}">
     ${!open ? `<button class="h-stack-hit" data-act="stackOpen" aria-label="Show ${items.length} notifications"></button>` : ""}
     ${items.map((n, i) => `<div class="h-ios ${n.cls}" style="--i:${i};${n.style || ""}" data-key="${n.key}">
       <button class="h-ios-main" data-act="${n.act}" data-id="${n.id}" ${!open && i ? 'tabindex="-1" aria-hidden="true"' : ""}>
